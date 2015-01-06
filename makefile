@@ -1,4 +1,3 @@
-.PHONY
 all: push sync
 
 push:
