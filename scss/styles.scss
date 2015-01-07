@@ -1,5 +1,57 @@
 @import '../bootstrap-sass-3.3.1/assets/stylesheets/_bootstrap';
+@import 'index';
 
-.red {
-	color: red;
+body {
+	max-width: 900px;
+	margin: 0 auto;
+}
+
+.header {
+	font-size: $font-size-h1;
+	color: $brand-primary;
+	text-align: center;
+}
+
+.container-xs-height {
+	display: table;
+}
+
+.row-xs-height {
+	display: table-row;
+}
+
+.col-xs-height {
+	display: table-cell;
+	float: none;
+}
+
+.pad {
+	height: 10px;
+}
+
+.inset {
+	padding: 20px;
+}
+
+.center-text {
+	text-align: center;
+}
+
+.vert-center {
+	vertical-align: middle;
+}
+
+.img-large {
+	width: 100%;
+	max-width: 800px;
+	height: auto;
+}
+
+.img-med {
+	max-width: 300px;
+	height: auto;
+}
+
+.font-sm {
+	font-size: 8px;
 }
