@@ -4,5 +4,8 @@ push:
 sync:
 	@rsync -zvah --exclude '.git' * cjs1993@schizo.cs.byu.edu:public_html/ThreeSixty/
 
-css: less/styles.less
-	@lessc less/styles.less > css/styles.css
+watch-css:
+	@sass --watch --cache-location scss/cache/ scss:css
+
+clean-css:
+	@rm css/*
