@@ -45,7 +45,7 @@
 	}
 
 	* {
-		&:not(pre) {
+		&:not(pre, .do-not-center) {
 			text-align: center;
 		}
 		vertical-align: middle;
