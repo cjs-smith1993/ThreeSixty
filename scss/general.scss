@@ -1,0 +1,101 @@
+@import 'colors';
+
+.header {
+	font-size: $font-size-h1;
+	color: $brand-primary;
+	text-align: center;
+}
+
+.pad {
+	height: 10px;
+}
+
+.inset {
+	padding: 20px;
+}
+
+.center-text {
+	text-align: center;
+}
+
+.vert-center {
+	vertical-align: middle !important;
+
+	table, th, tr, td {
+		vertical-align: middle !important;
+	}
+}
+
+.horz-center {
+	float: none;
+	margin-left: auto;
+	margin-right: auto;
+	margin-top: 3%;
+	margin-bottom: 3%;
+
+	padding: 3%;
+}
+
+.box-sm, .box-md, .box-lg {
+	overflow: hidden;
+
+	&:not(.borderless) {
+		border: 1px solid black;
+		border-radius: 4px;
+	}
+
+	* {
+		&:not(pre) {
+			text-align: center;
+		}
+		vertical-align: middle;
+	}
+
+	div {
+		max-width: 100%;
+		max-height: 100%;
+		overflow: hidden;
+	}
+}
+
+.box-sm {
+	width: 200px;
+	height: 200px;
+}
+
+.box-md {
+	width: 300px;
+	height: 300px;
+}
+
+.box-lg {
+	width: 400px;
+	height: 400px;
+}
+
+.img-sm {
+	width: 50%;
+	max-width: 100px;
+	height: auto;
+}
+
+.img-md {
+	width: 75%;
+	max-width: 300px;
+	height: auto;
+}
+
+.img-lg {
+	width: 100%;
+	max-width: 800px;
+	height: auto;
+}
+
+.font-sm {
+	font-size: 8px;
+}
+
+.no-outer-border {
+	border-collapse: collapse;
+	border-style: hidden;
+}
