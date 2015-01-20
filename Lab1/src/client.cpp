@@ -58,8 +58,6 @@ void sendRequest(int sock, std::string method, std::string URI, std::string vers
 					+ version
 					+ "\r\n"
 					+ "Host: " + host
-					+ "\r\n"
-					+ "Connection: Keep-Alive"
 					+ "\r\n\r\n";
 	const char* request = str.c_str();
 
@@ -176,29 +174,30 @@ int main(int argc, char* argv[]) {
 		strcpy(hostURI, argv[argc-1]);
 	}
 
-	// printf("\nMaking a socket\n");
-	int sock = makeSocket();
 
-	// printf("Converting host name into IP address\n");
-	struct sockaddr_in address = convertHostToAddress(hostName, hostPort);
+	for (int i = 0; i < numRequests; i++) {
+		// printf("\nMaking a socket\n");
+		int sock = makeSocket();
 
-	// printf("Connecting to %s on port %d\n", hostName, hostPort);
-	makeConnection(sock, (struct sockaddr*)&address);
+		// printf("Converting host name into IP address\n");
+		struct sockaddr_in address = convertHostToAddress(hostName, hostPort);
 
-	bool connectionOpen = true;
-	for (int i = 0; i < numRequests && connectionOpen; i++) {
+		// printf("Connecting to %s on port %d\n", hostName, hostPort);
+		makeConnection(sock, (struct sockaddr*)&address);
+
 		sendRequest(sock, "GET", hostURI, "HTTP/1.1", hostName);
 		std::stringstream ss;
 		ss << "out/response";
 		ss << i;
 		ss << ".html";
-		connectionOpen = readResponse(sock, ss.str());
+		readResponse(sock, ss.str());
+
+		// printf("\nClosing socket\n");
+		closeSocket(sock);
 	}
 
 	if (customCount) {
 		printf("Successfully downloaded file %d time(s)\n", numResponses);
 	}
 
-	// printf("\nClosing socket\n");
-	closeSocket(sock);
 }
