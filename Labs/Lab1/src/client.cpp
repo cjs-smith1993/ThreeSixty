@@ -163,8 +163,7 @@ int main(int argc, char* argv[]) {
 				return 0;
 		}
 	}
-
-	if (argc < 3) {
+	if (argc < 4) {
 		printf("\nUsage: download host-name host-port URI\n");
 		return 0;
 	}
@@ -185,7 +184,7 @@ int main(int argc, char* argv[]) {
 		// printf("Connecting to %s on port %d\n", hostName, hostPort);
 		makeConnection(sock, (struct sockaddr*)&address);
 
-		sendRequest(sock, "GET", hostURI, "HTTP/1.1", hostName);
+		sendRequest(sock, "GET", hostURI, "HTTP/1.0", hostName);
 		std::stringstream ss;
 		ss << "out/response";
 		ss << i;
