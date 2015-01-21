@@ -4,7 +4,7 @@ client: src/client.cpp src/headers.h
 	@g++ src/client.cpp src/headers.cpp -o download
 
 clean:
-	@rm download out/*
+	@rm download downloads/*
 
 clean-responses:
-	@rm out/*
+	@rm downloads/*

@@ -186,7 +186,7 @@ int main(int argc, char* argv[]) {
 
 		sendRequest(sock, "GET", hostURI, "HTTP/1.0", hostName);
 		std::stringstream ss;
-		ss << "out/response";
+		ss << "downloads/response";
 		ss << i;
 		ss << ".html";
 		readResponse(sock, ss.str());
