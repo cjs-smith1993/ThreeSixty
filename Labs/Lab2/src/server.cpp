@@ -5,6 +5,7 @@
 #include <vector>
 #include <thread>
 #include <sys/stat.h>
+#include <dirent.h>
 
 #include "sockets.h"
 #include "headers.h"
@@ -12,13 +13,39 @@
 #include "concurrentQueue.h"
 
 #define LINE_LENGTH 50
-#define BUFFER_LENGTH 256
+#define BUFFER_LENGTH 500
 
 ConcurrentQueue q;
 std::mutex qMutex;
 
-void generateDirectory(char URI[], char** buf) {
-	*buf = "<html>it's a trap</html>\n";
+void generateDirectory(char URI[], char buf[]) {
+	dprintf("%s\n", URI);
+	strcpy(buf, "<html>\r\n<body>\r\n<h1>Index of ");
+	strcpy(buf, URI);
+	strcpy(buf, "</h1>\r\n<ul>\r\n");
+
+	DIR* d;
+	struct dirent* dir;
+	d = opendir(URI);
+	if (d) {
+		while ((dir = readdir(d))) {
+			dprintf("%s\n", dir->d_name);
+			strcat(buf, "<li><a href=\"");
+			if (dir->d_name[0] != '.') {
+				strcat(buf, URI);
+				strcat(buf, "/");
+			}
+			strcat(buf, dir->d_name);
+			strcat(buf, "\"> ");
+			strcat(buf, dir->d_name);
+			strcat(buf, "</a></li>\r\n");
+		}
+
+		closedir(d);
+	}
+
+	strcat(buf, "</ul>\r\n</body>\r\n</html>");
+
 }
 
 void serve(int tid, std::string path) {
@@ -28,10 +55,11 @@ void serve(int tid, std::string path) {
 		dprintf("serving %d\n", sock);
 
 		bool directory = false;
-		char *dirBuf;
+		char dirBuf[BUFFER_LENGTH];
 
 		char cmd[LINE_LENGTH];
 		char URI[LINE_LENGTH];
+		memset(URI, 0, LINE_LENGTH);
 		double version;
 
 		//read the request line
@@ -72,7 +100,7 @@ void serve(int tid, std::string path) {
 			else { //output a directory listing
 				dprintf("%s is not an index file\n", indexURI);
 				directory = true;
-				generateDirectory(URI, &dirBuf);
+				generateDirectory(URI, dirBuf);
 				fileLength = strlen(dirBuf);
 			}
 		}
@@ -88,10 +116,10 @@ void serve(int tid, std::string path) {
 		dprintf("%s", statusLine);
 
 		//write the Content-Type line
-		const char* fileType = strchr(URI, '.'); //ignore first '.'
+		const char* fileType = strchr(URI+1, '.'); //ignore first '.'
 		const char* type;
 		dprintf("%s\n", fileType);
-		if (strcmp(fileType, ".html") == 0 || fileType[1] == '/') {
+		if (!fileType || strcmp(fileType, ".html") == 0) {
 			type = "text/html";
 		}
 		else if (strcmp(fileType, ".txt") == 0) {
@@ -144,7 +172,7 @@ void serve(int tid, std::string path) {
 			fclose(file);
 		}
 		else {
-			dprintf("about to read dynamic directory");
+			dprintf("about to read directory listing");
 			write(sock, dirBuf, strlen(dirBuf));
 		}
 
