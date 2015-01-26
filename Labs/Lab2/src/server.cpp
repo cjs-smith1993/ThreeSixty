@@ -11,6 +11,7 @@
 #include "debug.h"
 #include "concurrentQueue.h"
 
+#define LINE_LENGTH 50
 #define BUFFER_LENGTH 256
 
 ConcurrentQueue q;
@@ -22,14 +23,14 @@ void serve(int tid, std::string path) {
 		int sock = q.pop();
 		dprintf("serving %d\n", sock);
 
-		char cmd[3];
-		char URI[20];
+		char cmd[LINE_LENGTH];
+		char URI[LINE_LENGTH];
 		double version;
 
 		//read the request line
 		char* line = GetLine(sock);
-		sscanf(line, "%s %s HTTP/%lf", cmd, URI, &version);
-		dprintf("Command: %s\nURI: %s\nHTTP version: %lf\n\n", cmd, URI, version);
+		sscanf(line, "%s /%s HTTP/%lf", cmd, URI, &version);
+		dprintf("\n----------------\nCommand: %s\nURI: %s\nHTTP version: %lf\n\n", cmd, URI, version);
 
 		//read the rest of the request headers
 		while (strlen(line) > 0) {
@@ -38,35 +39,87 @@ void serve(int tid, std::string path) {
 		}
 
 		//write the status line
-		char status[] = "HTTP/1.1 200 OK\r\n";
-		write(sock, status, strlen(status));
-		dprintf("%s", status);
-
-		//get the Content-Type
-		char contentType[] = "Content-Type: text/html\r\n";
-		write(sock, contentType, strlen(contentType));
-		dprintf("%s", contentType);
-
-		//get the Content-Length
+		int status = 200;
+		char message[LINE_LENGTH];
+		sprintf(message, "OK");
 		long int fileLength;
 		struct stat filestat;
-		stat("test.html", &filestat);
+		stat(URI, &filestat);
+
 		if (S_ISREG(filestat.st_mode)) {
+			dprintf("Found a file\n");
 			fileLength = filestat.st_size;
-			dprintf("%ld\n", fileLength);
 		}
-		char contentLength[25];
-		sprintf(contentLength, "Content-Length: %ld\n", fileLength);
+		else if (S_ISDIR(filestat.st_mode)) {
+			//TODO
+		}
+		else {
+			status = 404;
+			sprintf(message, "Not Found");
+			sprintf(URI, "404.html");
+		}
+
+		char statusLine[LINE_LENGTH];
+		sprintf(statusLine, "HTTP/1.1 %d %s\r\n", status, message);
+		write(sock, statusLine, strlen(statusLine));
+		dprintf("%s", statusLine);
+
+		if (status != 200) {
+			char blank[] = "\r\n";
+			write(sock, blank, strlen(blank));
+			close(sock);
+			continue;
+		}
+
+		//write the Content-Type line
+		const char* fileType = strchr(URI, '.');
+		const char* type;
+		if (strcmp(fileType, ".html") == 0) {
+			type = "text/html";
+		}
+		else if (strcmp(fileType, ".txt") == 0) {
+			type = "text/plain";
+		}
+		else if (strcmp(fileType, ".jpg") == 0) {
+			type = "image/jpg";
+		}
+		else if (strcmp(fileType, ".gif") == 0) {
+			type = "image/gif";
+		}
+		else {
+			dprintf("Unknown file type\n");
+			char blank[] = "\r\n";
+			write(sock, blank, strlen(blank));
+			close(sock);
+			continue;
+		}
+		char contentTypeLine[LINE_LENGTH];
+		sprintf(contentTypeLine, "Content-Type: %s\r\n", type);
+		write(sock, contentTypeLine, strlen(contentTypeLine));
+		dprintf("%s", contentTypeLine);
+
+		//write the Content-Length line
+		char contentLength[LINE_LENGTH];
+		sprintf(contentLength, "Content-Length: %ld\r\n", fileLength);
 		write(sock, contentLength, strlen(contentLength));
 		dprintf("%s", contentLength);
 
 		//write the rest of the response headers
-		char other[] = "Connection: close\r\n\r\n";
+		char other[] = "Connection: close\r\n";
 		write(sock, other, strlen(other));
 		dprintf("%s", other);
 
+		//write a blank line
+		char blank[] = "\r\n";
+		write(sock, blank, strlen(blank));
+		dprintf("%s\n", blank);
+
 		//write the file
-		FILE* file = fopen("test.html", "r");
+		dprintf("about to read from %s\n", URI);
+		FILE* file = fopen(URI, "r");
+		if (!file) {
+			printf("WTF this can't happen\n");
+		}
 		char buf[BUFFER_LENGTH];
 		while (fgets(buf, BUFFER_LENGTH, file)) {
 			write(sock, buf, strlen(buf));
