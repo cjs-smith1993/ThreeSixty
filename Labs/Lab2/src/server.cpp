@@ -17,11 +17,18 @@
 ConcurrentQueue q;
 std::mutex qMutex;
 
+void generateDirectory(char URI[], char** buf) {
+	*buf = "<html>it's a trap</html>\n";
+}
+
 void serve(int tid, std::string path) {
 	while(true) {
 		qMutex.lock();
 		int sock = q.pop();
 		dprintf("serving %d\n", sock);
+
+		bool directory = false;
+		char *dirBuf;
 
 		char cmd[LINE_LENGTH];
 		char URI[LINE_LENGTH];
@@ -58,14 +65,15 @@ void serve(int tid, std::string path) {
 			sprintf(indexURI, "%s/index.html", URI);
 
 			stat(indexURI, &filestat);
-			if (S_ISREG(filestat.st_mode)) {
-				//use the index.html page
+			if (S_ISREG(filestat.st_mode)) { //use the index.html page
 				sprintf(URI, "%s", indexURI);
 				dprintf("%s\n", URI);
 			}
-			else {
-				//output a directory listing
+			else { //output a directory listing
 				dprintf("%s is not an index file\n", indexURI);
+				directory = true;
+				generateDirectory(URI, &dirBuf);
+				fileLength = strlen(dirBuf);
 			}
 		}
 		else {
@@ -80,9 +88,10 @@ void serve(int tid, std::string path) {
 		dprintf("%s", statusLine);
 
 		//write the Content-Type line
-		const char* fileType = strchr(URI+1, '.'); //ignore first '.'
+		const char* fileType = strchr(URI, '.'); //ignore first '.'
 		const char* type;
-		if (strcmp(fileType, ".html") == 0) {
+		dprintf("%s\n", fileType);
+		if (strcmp(fileType, ".html") == 0 || fileType[1] == '/') {
 			type = "text/html";
 		}
 		else if (strcmp(fileType, ".txt") == 0) {
@@ -124,14 +133,20 @@ void serve(int tid, std::string path) {
 		dprintf("%s\n", blank);
 
 		//write the file
-		dprintf("about to read from %s\n", URI);
-		FILE* file = fopen(URI, "r");
-		char buf[BUFFER_LENGTH];
-		while (fgets(buf, BUFFER_LENGTH, file)) {
-			write(sock, buf, strlen(buf));
-			dprintf("%s", buf);
+		if (!directory) {
+			dprintf("about to read from %s\n", URI);
+			FILE* file = fopen(URI, "r");
+			char buf[BUFFER_LENGTH];
+			while (fgets(buf, BUFFER_LENGTH, file)) {
+				write(sock, buf, strlen(buf));
+				dprintf("%s", buf);
+			}
+			fclose(file);
 		}
-		fclose(file);
+		else {
+			dprintf("about to read dynamic directory");
+			write(sock, dirBuf, strlen(dirBuf));
+		}
 
 		close(sock);
 	}
