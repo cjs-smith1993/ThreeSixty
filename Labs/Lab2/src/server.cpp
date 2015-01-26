@@ -46,12 +46,12 @@ void serve(int tid, std::string path) {
 		struct stat filestat;
 		stat(URI, &filestat);
 
-		if (S_ISREG(filestat.st_mode)) {
+		if (fopen(URI, "r") && S_ISREG(filestat.st_mode)) {
 			dprintf("Found a file\n");
-			fileLength = filestat.st_size;
 		}
 		else if (S_ISDIR(filestat.st_mode)) {
 			//TODO
+			dprintf("-----------dir\n");
 		}
 		else {
 			status = 404;
@@ -63,13 +63,6 @@ void serve(int tid, std::string path) {
 		sprintf(statusLine, "HTTP/1.1 %d %s\r\n", status, message);
 		write(sock, statusLine, strlen(statusLine));
 		dprintf("%s", statusLine);
-
-		if (status != 200) {
-			char blank[] = "\r\n";
-			write(sock, blank, strlen(blank));
-			close(sock);
-			continue;
-		}
 
 		//write the Content-Type line
 		const char* fileType = strchr(URI, '.');
@@ -87,11 +80,8 @@ void serve(int tid, std::string path) {
 			type = "image/gif";
 		}
 		else {
+			type = "text/plain";
 			dprintf("Unknown file type\n");
-			char blank[] = "\r\n";
-			write(sock, blank, strlen(blank));
-			close(sock);
-			continue;
 		}
 		char contentTypeLine[LINE_LENGTH];
 		sprintf(contentTypeLine, "Content-Type: %s\r\n", type);
@@ -99,6 +89,10 @@ void serve(int tid, std::string path) {
 		dprintf("%s", contentTypeLine);
 
 		//write the Content-Length line
+		stat(URI, &filestat);
+		if (fopen(URI, "r") && S_ISREG(filestat.st_mode)) {
+			fileLength = filestat.st_size;
+		}
 		char contentLength[LINE_LENGTH];
 		sprintf(contentLength, "Content-Length: %ld\r\n", fileLength);
 		write(sock, contentLength, strlen(contentLength));
@@ -117,9 +111,6 @@ void serve(int tid, std::string path) {
 		//write the file
 		dprintf("about to read from %s\n", URI);
 		FILE* file = fopen(URI, "r");
-		if (!file) {
-			printf("WTF this can't happen\n");
-		}
 		char buf[BUFFER_LENGTH];
 		while (fgets(buf, BUFFER_LENGTH, file)) {
 			write(sock, buf, strlen(buf));
