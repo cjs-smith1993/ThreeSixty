@@ -29,7 +29,9 @@ void serve(int tid, std::string path) {
 
 		//read the request line
 		char* line = GetLine(sock);
-		sscanf(line, "%s /%s HTTP/%lf", cmd, URI, &version);
+		sscanf(line, "%s %s HTTP/%lf", cmd, URI, &version);
+		memmove(URI+1, URI, strlen(URI)); //prepend leading '.'
+		URI[0] = '.';
 		dprintf("\n----------------\nCommand: %s\nURI: %s\nHTTP version: %lf\n\n", cmd, URI, version);
 
 		//read the rest of the request headers
@@ -50,8 +52,21 @@ void serve(int tid, std::string path) {
 			dprintf("Found a file\n");
 		}
 		else if (S_ISDIR(filestat.st_mode)) {
-			//TODO
-			dprintf("-----------dir\n");
+			dprintf("Found a directory\n");
+			//check for index.html page
+			char indexURI[LINE_LENGTH];
+			sprintf(indexURI, "%s/index.html", URI);
+
+			stat(indexURI, &filestat);
+			if (S_ISREG(filestat.st_mode)) {
+				//use the index.html page
+				sprintf(URI, "%s", indexURI);
+				dprintf("%s\n", URI);
+			}
+			else {
+				//output a directory listing
+				dprintf("%s is not an index file\n", indexURI);
+			}
 		}
 		else {
 			status = 404;
@@ -65,7 +80,7 @@ void serve(int tid, std::string path) {
 		dprintf("%s", statusLine);
 
 		//write the Content-Type line
-		const char* fileType = strchr(URI, '.');
+		const char* fileType = strchr(URI+1, '.'); //ignore first '.'
 		const char* type;
 		if (strcmp(fileType, ".html") == 0) {
 			type = "text/html";
@@ -118,8 +133,6 @@ void serve(int tid, std::string path) {
 		}
 		fclose(file);
 
-		// char* str("HTTP/1.1 200 OK\nDate: Mon, 26 Jan 2015 02:12:40 GMT\nServer: Apache/2.2.11 (Unix) PHP/5.3.6 mod_python/3.3.1 Python/2.3.5 mod_fastcgi/2.4.6 DAV/2 SVN/1.4.5 Phusion_Passenger/2.2.5\nAccept-Ranges: bytes\nConnection: close\nContent-Type: text/html\n\n<html>hello</html>\n\n");
-		// write(sock, str, strlen(str));
 		close(sock);
 	}
 }
