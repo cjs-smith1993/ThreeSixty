@@ -32,6 +32,7 @@ void serve(int tid, std::string path) {
 }
 
 int main(int argc, char* argv[]) {
+	//lock signal semaphore
 	qMutex.lock();
 
 	//parse arguments
@@ -52,14 +53,21 @@ int main(int argc, char* argv[]) {
 
 	dprintf("create a socket\n");
 	int socket = sockCreate();
+
 	dprintf("convert address\n");
 	struct sockaddr_in address = createAddress(port);
+
 	dprintf("bind socket to address\n");
 	sockBind(socket, (struct sockaddr*)&address);
+
 	dprintf("listen to socket\n");
 	sockListen(socket);
-	dprintf("accept connections to socket\n");
 
+	dprintf("allow socket to be reused\n");
+	int optval = 1;
+	setsockopt(socket, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
+
+	dprintf("accept connections to socket\n");
 	int newSocket;
 	while (newSocket = sockAccept(socket, (struct sockaddr*)&address)) {
 		dprintf("Adding new task: %d\n", newSocket);
@@ -68,8 +76,6 @@ int main(int argc, char* argv[]) {
 	}
 
 	dprintf("all done. Cleaning up thread pool\n");
-
-	//clean up thread pool
 	for (auto &thread: workers) {
 		thread.join();
 	}
