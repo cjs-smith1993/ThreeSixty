@@ -13,7 +13,7 @@
 #include "concurrentQueue.h"
 
 #define LINE_LENGTH 50
-#define BUFFER_LENGTH 500
+#define BUFFER_LENGTH 10000
 
 ConcurrentQueue q;
 std::mutex qMutex;
@@ -29,7 +29,6 @@ void generateDirectory(char URI[], char buf[]) {
 	d = opendir(URI);
 	if (d) {
 		while ((dir = readdir(d))) {
-			dprintf("%s\n", dir->d_name);
 			strcat(buf, "<li><a href=\"");
 			if (dir->d_name[0] != '.') {
 				strcat(buf, URI);
@@ -45,7 +44,6 @@ void generateDirectory(char URI[], char buf[]) {
 	}
 
 	strcat(buf, "</ul>\r\n</body>\r\n</html>");
-
 }
 
 void serve(int tid, std::string path) {
@@ -81,12 +79,12 @@ void serve(int tid, std::string path) {
 		sprintf(message, "OK");
 		long int fileLength;
 		struct stat filestat;
-		stat(URI, &filestat);
+		int statError = stat(URI, &filestat);
 
-		if (fopen(URI, "r") && S_ISREG(filestat.st_mode)) {
+		if (!statError && S_ISREG(filestat.st_mode)) {
 			dprintf("Found a file\n");
 		}
-		else if (S_ISDIR(filestat.st_mode)) {
+		else if (!statError && S_ISDIR(filestat.st_mode)) {
 			dprintf("Found a directory\n");
 			//check for index.html page
 			char indexURI[LINE_LENGTH];
@@ -172,7 +170,7 @@ void serve(int tid, std::string path) {
 			fclose(file);
 		}
 		else {
-			dprintf("about to read directory listing");
+			dprintf("about to read directory listing\n%s", dirBuf);
 			write(sock, dirBuf, strlen(dirBuf));
 		}
 
