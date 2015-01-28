@@ -26,8 +26,8 @@ void generateDirectory(char URI[], char buf[]) {
 	strcpy(buf, "</h1>\r\n<ul>\r\n");
 
 	DIR* d;
-	struct dirent* dir;
 	d = opendir(URI);
+	struct dirent* dir;
 	if (d) {
 		while ((dir = readdir(d))) {
 			strcat(buf, "<li><a href=\"");
@@ -53,7 +53,7 @@ void serve(int tid, std::string path) {
 		int sock = q.pop();
 		dprintf("serving %d\n", sock);
 
-		bool directory = false;
+		bool isDirectory = false;
 		char dirBuf[BUFFER_LENGTH];
 
 		char cmd[LINE_LENGTH];
@@ -98,7 +98,7 @@ void serve(int tid, std::string path) {
 			}
 			else { //output a directory listing
 				dprintf("%s is not an index file\n", indexURI);
-				directory = true;
+				isDirectory = true;
 				generateDirectory(URI, dirBuf);
 				fileLength = strlen(dirBuf);
 			}
@@ -160,7 +160,7 @@ void serve(int tid, std::string path) {
 		dprintf("%s\n", blank);
 
 		//write the file
-		if (!directory) {
+		if (!isDirectory) {
 			dprintf("about to read from %s\n", URI);
 			FILE* file = fopen(URI, "r");
 			int fd = fileno(file);
