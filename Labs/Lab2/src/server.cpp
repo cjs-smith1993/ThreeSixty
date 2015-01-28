@@ -30,11 +30,12 @@ void generateDirectory(char URI[], char buf[]) {
 	struct dirent* dir;
 	if (d) {
 		while ((dir = readdir(d))) {
-			strcat(buf, "<li><a href=\"");
-			if (dir->d_name[0] != '.') {
-				strcat(buf, URI);
-				strcat(buf, "/");
+			if (strcmp(dir->d_name, ".") == 0) {
+				continue;
 			}
+			strcat(buf, "<li><a href=\"");
+			strcat(buf, URI);
+			strcat(buf, "/");
 			strcat(buf, dir->d_name);
 			strcat(buf, "\"> ");
 			strcat(buf, dir->d_name);
@@ -47,7 +48,7 @@ void generateDirectory(char URI[], char buf[]) {
 	strcat(buf, "</ul>\r\n</body>\r\n</html>");
 }
 
-void serve(int tid, std::string path) {
+void serve(int tid, std::string rootPath) {
 	while(true) {
 		qMutex.lock();
 		int sock = q.pop();
@@ -64,8 +65,27 @@ void serve(int tid, std::string path) {
 		//read the request line
 		char* line = GetLine(sock);
 		sscanf(line, "%s %s HTTP/%lf", cmd, URI, &version);
-		memmove(URI+1, URI, strlen(URI)); //prepend leading '.'
-		URI[0] = '.';
+
+		//normalize root path and URI
+		dprintf("\nBEFORE\nroot: %s\nURI: %s", rootPath.c_str(), URI);
+
+		if (rootPath[0] != '/') {
+			rootPath = "/" + rootPath;
+		}
+		if (rootPath[rootPath.length()-1] == '/') {
+			rootPath = rootPath.substr(0, rootPath.length()-1);
+		}
+		rootPath = "." + rootPath;
+
+		if (URI[strlen(URI)-1] == '/') {
+			URI[strlen(URI)-1] = '\0';
+		}
+		dprintf("\nAFTER\nroot: %s\nURI: %s", rootPath.c_str(), URI);
+
+		std::string tempURI = rootPath + std::string(URI);
+		strcpy(URI, tempURI.c_str());
+		// memmove(URI+1, URI, strlen(URI)); //prepend leading '.'
+		// URI[0] = '.';
 		dprintf("\n----------------\nCommand: %s\nURI: %s\nHTTP version: %lf\n\n", cmd, URI, version);
 
 		//read the rest of the request headers
@@ -115,10 +135,14 @@ void serve(int tid, std::string path) {
 		dprintf("%s", statusLine);
 
 		//write the Content-Type line
-		const char* fileType = strchr(URI+1, '.'); //ignore first '.'
+		dprintf("file type of: %s\n", URI);
+		const char* fileType = strrchr(URI, '.');
 		const char* type;
 		dprintf("%s\n", fileType);
-		if (!fileType || strcmp(fileType, ".html") == 0) {
+		if (!fileType || strlen(fileType) <= 1 || strchr(fileType, '/')) { //directory
+			type = "text/html";
+		}
+		else if (strcmp(fileType, ".html") == 0) {
 			type = "text/html";
 		}
 		else if (strcmp(fileType, ".txt") == 0) {
