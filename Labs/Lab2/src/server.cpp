@@ -84,8 +84,6 @@ void serve(int tid, std::string rootPath) {
 
 		std::string tempURI = rootPath + std::string(URI);
 		strcpy(URI, tempURI.c_str());
-		// memmove(URI+1, URI, strlen(URI)); //prepend leading '.'
-		// URI[0] = '.';
 		dprintf("\n----------------\nCommand: %s\nURI: %s\nHTTP version: %lf\n\n", cmd, URI, version);
 
 		//read the rest of the request headers
