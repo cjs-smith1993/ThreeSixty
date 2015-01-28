@@ -6,6 +6,7 @@
 #include <thread>
 #include <sys/stat.h>
 #include <dirent.h>
+#include <sys/sendfile.h>
 
 #include "sockets.h"
 #include "headers.h"
@@ -162,10 +163,11 @@ void serve(int tid, std::string path) {
 		if (!directory) {
 			dprintf("about to read from %s\n", URI);
 			FILE* file = fopen(URI, "r");
-			char buf[BUFFER_LENGTH];
-			while (fgets(buf, BUFFER_LENGTH, file)) {
-				write(sock, buf, strlen(buf));
-				dprintf("%s", buf);
+			int fd = fileno(file);
+			off_t* offset;
+
+			if(sendfile(sock, fd, NULL, fileLength) < 0) {
+				dprintf("Error writing file to socket: %d", errno);
 			}
 			fclose(file);
 		}
@@ -174,6 +176,7 @@ void serve(int tid, std::string path) {
 			write(sock, dirBuf, strlen(dirBuf));
 		}
 
+		shutdown(sock, SHUT_RDWR);
 		close(sock);
 	}
 }
