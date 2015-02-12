@@ -24,53 +24,73 @@ void canonicalizeURI(std::string root, char URI[]) {
 	strcpy(URI, tempURI.c_str());
 }
 
-bool writeStatusLine(int sock, char URI[]) {
-	bool isDirectory = false;
+bool isDirectory(char URI[]) {
+	struct stat filestat;
+	int statError = stat(URI, &filestat);
+	return !statError && S_ISDIR(filestat.st_mode);
+}
 
+std::string getMessage(int status) {
+	std::string message;
+
+	switch(status) {
+		case 200:
+			message = "OK";
+			break;
+		case 404:
+			message = "Not Found";
+			break;
+	}
+
+	return message;
+}
+
+int getStatus(int sock, char URI[]) {
 	int status = 200;
-	char message[LINE_LENGTH];
-	sprintf(message, "OK");
 	struct stat filestat;
 	int statError = stat(URI, &filestat);
 
-	if (!statError && S_ISREG(filestat.st_mode)) {
-		dprintf("Found a file\n");
-	}
-	else if (!statError && S_ISDIR(filestat.st_mode)) {
-		dprintf("Found a directory\n");
-		//check for index.html page
-		char indexURI[LINE_LENGTH];
-		sprintf(indexURI, "%s/index.html", URI);
-
-		stat(indexURI, &filestat);
-		if (S_ISREG(filestat.st_mode)) { //use the index.html page
-			sprintf(URI, "%s", indexURI);
-			dprintf("%s\n", URI);
+	if (!statError) {
+		if (S_ISREG(filestat.st_mode)) {
+			// dprintf("Found a file\n");
 		}
-		else { //output a directory listing
-			dprintf("%s is not an index file\n", indexURI);
-			isDirectory = true;
+		else if (S_ISDIR(filestat.st_mode)) {
+			// dprintf("Found a directory\n");
+			//check for index.html page
+			char indexURI[LINE_LENGTH];
+			sprintf(indexURI, "%s/index.html", URI);
+
+			stat(indexURI, &filestat);
+			if (S_ISREG(filestat.st_mode)) { //use the index.html page
+				sprintf(URI, "%s", indexURI);
+				dprintf("%s\n", URI);
+			}
+			else { //output a directory listing
+				// dprintf("%s is not an index file\n", indexURI);
+				// isDirectory = true;
+			}
 		}
 	}
 	else {
 		status = 404;
-		sprintf(message, "Not Found");
 		sprintf(URI, "404.html");
 	}
 
-	char statusLine[LINE_LENGTH];
-	sprintf(statusLine, "HTTP/1.1 %d %s\r\n", status, message);
-	write(sock, statusLine, strlen(statusLine));
-	dprintf("%s", statusLine);
-
-	return isDirectory;
+	return status;
 }
 
-std::string writeContentTypeLine(int sock, char URI[]) {
-	dprintf("file type of: %s\n", URI);
+void writeStatusLine(int sock, int status, std::string message) {
+	char statusLine[LINE_LENGTH];
+	sprintf(statusLine, "HTTP/1.1 %d %s\r\n", status, message.c_str());
+	write(sock, statusLine, strlen(statusLine));
+	dprintf("%s", statusLine);
+}
+
+std::string getContentType(int sock, char URI[]) {
+	// dprintf("file type of: %s\n", URI);
 	const char* fileType = strrchr(URI, '.');
 	const char* type;
-	dprintf("%s\n", fileType);
+	// dprintf("%s\n", fileType);
 	if (!fileType || strlen(fileType) <= 1 || strchr(fileType, '/')) { //directory
 		type = "text/html";
 	}
@@ -90,37 +110,35 @@ std::string writeContentTypeLine(int sock, char URI[]) {
 		type = "text/plain";
 		dprintf("Unknown file type\n");
 	}
-	char contentTypeLine[LINE_LENGTH];
-	sprintf(contentTypeLine, "Content-Type: %s\r\n", type);
-	write(sock, contentTypeLine, strlen(contentTypeLine));
-	dprintf("%s", contentTypeLine);
 
 	return type;
 }
 
-int writeContentLengthLine(int sock, char URI[], bool isDirectory, char dirBuf[]) {
-	int fileLength;
-	if (!isDirectory) {
-		struct stat filestat;
-		stat(URI, &filestat);
-		if (fopen(URI, "r") && S_ISREG(filestat.st_mode)) {
-			fileLength = filestat.st_size;
-		}
-	}
-	else {
-		generateDirectory(URI, dirBuf);
-		fileLength = strlen(dirBuf);
-	}
+void writeContentTypeLine(int sock, std::string type) {
+	char contentTypeLine[LINE_LENGTH];
+	sprintf(contentTypeLine, "Content-Type: %s\r\n", type.c_str());
+	write(sock, contentTypeLine, strlen(contentTypeLine));
+	dprintf("%s", contentTypeLine);
+}
 
+int getContentLength(int sock, char URI[]) {
+	int fileLength = -1;
+	struct stat filestat;
+	stat(URI, &filestat);
+	if (fopen(URI, "r") && S_ISREG(filestat.st_mode)) {
+		fileLength = filestat.st_size;
+	}
+	return fileLength;
+}
+
+void writeContentLengthLine(int sock, int fileLength) {
 	char contentLength[LINE_LENGTH];
 	sprintf(contentLength, "Content-Length: %d\r\n", fileLength);
 	write(sock, contentLength, strlen(contentLength));
 	dprintf("%s", contentLength);
-
-	return fileLength;
 }
 
-void generateDirectory(char URI[], char buf[]) {
+int generateDirectory(char URI[], char buf[]) {
 	dprintf("%s\n", URI);
 	strcpy(buf, "<html>\r\n<body>\r\n<h1>Index of ");
 	strcpy(buf, URI);
@@ -147,6 +165,8 @@ void generateDirectory(char URI[], char buf[]) {
 	}
 
 	strcat(buf, "</ul>\r\n</body>\r\n</html>");
+
+	return strlen(buf);
 }
 
 void writeEndOfHeaders(int sock) {
@@ -160,22 +180,21 @@ void writeEndOfHeaders(int sock) {
 	dprintf("%s\n", blank);
 }
 
-void writeFile(int sock, char URI[], bool isDirectory, int fileLength, char dirBuf[]) {
-	if (!isDirectory) {
-		dprintf("about to read from %s\n", URI);
-		FILE* file = fopen(URI, "r");
-		int fd = fileno(file);
-		off_t* offset;
+void writeFile(int sock, char URI[], int fileLength) {
+	dprintf("about to read from %s\n", URI);
+	FILE* file = fopen(URI, "r");
+	int fd = fileno(file);
+	off_t* offset;
 
-		if(_sendfile(sock, fd, NULL, fileLength) < 0) {
-			dprintf("Error writing file to socket: %d", errno);
-		}
-		fclose(file);
+	if(_sendfile(sock, fd, NULL, fileLength) < 0) {
+		dprintf("Error writing file to socket: %d", errno);
 	}
-	else {
-		dprintf("about to read directory listing\n%s", dirBuf);
-		write(sock, dirBuf, strlen(dirBuf));
-	}
+	fclose(file);
+}
+
+void writeFile(int sock, char dirBuf[]) {
+	dprintf("about to read directory listing\n%s", dirBuf);
+	write(sock, dirBuf, strlen(dirBuf));
 }
 
 void serve(int tid, std::string rootPath) {
@@ -195,29 +214,36 @@ void serve(int tid, std::string rootPath) {
 
 		//normalize root path and URI
 		canonicalizeURI(rootPath, URI);
-		dprintf("\n----------------\nCommand: %s\nURI: %s\nHTTP version: %lf\n\n", cmd, URI, version);
+		dprintf("\n----------------\nCommand: %s\nURI: %s\nHTTP version: %lf\n----------------\n", cmd, URI, version);
 
 		//read the rest of the request headers
-		while (strlen(line) > 0) {
-			dprintf("%s\n", line);
-			line = GetLine(sock);
+		std::vector<char*> headerLines;
+		GetHeaderLines(headerLines, sock, true);
+
+		for (int i = 0; i < headerLines.size(); i++) {
+			dprintf("%s\n", headerLines[i]);
 		}
 
 		//write the status line
-		bool isDirectory = writeStatusLine(sock, URI);
+		int status = getStatus(sock, URI);
+		std::string message = getMessage(status);
+		bool isDir = isDirectory(URI);
+		writeStatusLine(sock, status, message);
 
 		//write the Content-Type line
-		std::string type = writeContentTypeLine(sock, URI);
+		std::string type = getContentType(sock, URI);
+		writeContentTypeLine(sock, type);
 
 		//write the Content-Length line
 		char dirBuf[BUFFER_LENGTH];
-		int fileLength = writeContentLengthLine(sock, URI, isDirectory, dirBuf);
+		int fileLength = isDir ? generateDirectory(URI, dirBuf) : getContentLength(sock, URI);
+		writeContentLengthLine(sock, fileLength);
 
 		//write the rest of the response headers and a blank line
 		writeEndOfHeaders(sock);
 
 		//write the file
-		writeFile(sock, URI, isDirectory, fileLength, dirBuf);
+		isDir ? writeFile(sock, dirBuf) : writeFile(sock, URI, fileLength);
 
 		shutdown(sock, SHUT_RDWR);
 		close(sock);

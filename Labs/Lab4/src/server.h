@@ -23,16 +23,22 @@
 #include "debug.h"
 #include "concurrentQueue.h"
 
-#define LINE_LENGTH 50
+#define LINE_LENGTH 500
 #define BUFFER_LENGTH 10000
 
 void canonicalizeURI(std::string root, char URI[]);
-bool writeStatusLine(int sock, char URI[]);
-std::string writeContentTypeLine(int sock, char URI[]);
-int writeContentLengthLine(int sock, char URI[], bool isDirectory, char dirBuf[]);
-void generateDirectory(char URI[], char buf[]);
+bool isDirectory(char URI[]);
+std::string getMessage(int status);
+int getStatus(int sock, char URI[]);
+void writeStatusLine(int sock, int status, std::string message);
+std::string getContentType(int sock, char URI[]);
+void writeContentTypeLine(int sock, std::string type);
+int getContentLength(int sock, char URI[]);
+void writeContentLengthLine(int sock, int fileLength);
+int generateDirectory(char URI[], char buf[]);
 void writeEndOfHeaders(int sock);
-void writeFile(int sock, char URI[], bool isDirectory, int fileLength, char dirBuf[]);
+void writeFile(int sock, char URI[], int fileLength);
+void writeFile(int sock, char dirBuf[]);
 void serve(int tid, std::string rootPath);
 
 int _sendfile(int sock, int fd, off_t* offset, size_t length) {
