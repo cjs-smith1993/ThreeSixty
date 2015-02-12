@@ -67,22 +67,23 @@ void serve(int tid, std::string rootPath) {
 		sscanf(line, "%s %s HTTP/%lf", cmd, URI, &version);
 
 		//normalize root path and URI
-		dprintf("\nBEFORE\nroot: %s\nURI: %s", rootPath.c_str(), URI);
+		std::string root = rootPath.c_str();
+		dprintf("\nBEFORE\nroot: %s\nURI: %s", root.c_str(), URI);
 
-		if (rootPath[0] != '/') {
-			rootPath = "/" + rootPath;
+		if (root[0] != '/') {
+			root = "/" + root;
 		}
-		if (rootPath[rootPath.length()-1] == '/') {
-			rootPath = rootPath.substr(0, rootPath.length()-1);
+		if (root[root.length()-1] == '/') {
+			root = root.substr(0, root.length()-1);
 		}
-		rootPath = "." + rootPath;
+		root = "." + root;
 
 		if (URI[strlen(URI)-1] == '/') {
 			URI[strlen(URI)-1] = '\0';
 		}
-		dprintf("\nAFTER\nroot: %s\nURI: %s", rootPath.c_str(), URI);
+		dprintf("\nAFTER\nroot: %s\nURI: %s", root.c_str(), URI);
 
-		std::string tempURI = rootPath + std::string(URI);
+		std::string tempURI = root + std::string(URI);
 		strcpy(URI, tempURI.c_str());
 		dprintf("\n----------------\nCommand: %s\nURI: %s\nHTTP version: %lf\n\n", cmd, URI, version);
 
