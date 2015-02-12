@@ -27,7 +27,12 @@
 #define BUFFER_LENGTH 10000
 
 void canonicalizeURI(std::string root, char URI[]);
+bool writeStatusLine(int sock, char URI[]);
+std::string writeContentTypeLine(int sock, char URI[]);
+int writeContentLengthLine(int sock, char URI[], bool isDirectory, char dirBuf[]);
 void generateDirectory(char URI[], char buf[]);
+void writeEndOfHeaders(int sock);
+void writeFile(int sock, char URI[], bool isDirectory, int fileLength, char dirBuf[]);
 void serve(int tid, std::string rootPath);
 
 int _sendfile(int sock, int fd, off_t* offset, size_t length) {

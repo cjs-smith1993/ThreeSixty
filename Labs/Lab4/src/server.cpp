@@ -5,7 +5,7 @@ std::mutex qMutex;
 
 void canonicalizeURI(std::string root, char URI[]) {
 	std::string rootCopy = root.c_str();
-	dprintf("\nBEFORE\nroot: %s\nURI: %s", rootCopy.c_str(), URI);
+	// dprintf("\nBEFORE\nroot: %s\nURI: %s", rootCopy.c_str(), URI);
 
 	if (rootCopy[0] != '/') {
 		rootCopy = "/" + rootCopy;
@@ -18,10 +18,106 @@ void canonicalizeURI(std::string root, char URI[]) {
 	if (URI[strlen(URI)-1] == '/') {
 		URI[strlen(URI)-1] = '\0';
 	}
-	dprintf("\nAFTER\nroot: %s\nURI: %s", rootCopy.c_str(), URI);
+	// dprintf("\nAFTER\nroot: %s\nURI: %s", rootCopy.c_str(), URI);
 
 	std::string tempURI = rootCopy + std::string(URI);
 	strcpy(URI, tempURI.c_str());
+}
+
+bool writeStatusLine(int sock, char URI[]) {
+	bool isDirectory = false;
+
+	int status = 200;
+	char message[LINE_LENGTH];
+	sprintf(message, "OK");
+	struct stat filestat;
+	int statError = stat(URI, &filestat);
+
+	if (!statError && S_ISREG(filestat.st_mode)) {
+		dprintf("Found a file\n");
+	}
+	else if (!statError && S_ISDIR(filestat.st_mode)) {
+		dprintf("Found a directory\n");
+		//check for index.html page
+		char indexURI[LINE_LENGTH];
+		sprintf(indexURI, "%s/index.html", URI);
+
+		stat(indexURI, &filestat);
+		if (S_ISREG(filestat.st_mode)) { //use the index.html page
+			sprintf(URI, "%s", indexURI);
+			dprintf("%s\n", URI);
+		}
+		else { //output a directory listing
+			dprintf("%s is not an index file\n", indexURI);
+			isDirectory = true;
+		}
+	}
+	else {
+		status = 404;
+		sprintf(message, "Not Found");
+		sprintf(URI, "404.html");
+	}
+
+	char statusLine[LINE_LENGTH];
+	sprintf(statusLine, "HTTP/1.1 %d %s\r\n", status, message);
+	write(sock, statusLine, strlen(statusLine));
+	dprintf("%s", statusLine);
+
+	return isDirectory;
+}
+
+std::string writeContentTypeLine(int sock, char URI[]) {
+	dprintf("file type of: %s\n", URI);
+	const char* fileType = strrchr(URI, '.');
+	const char* type;
+	dprintf("%s\n", fileType);
+	if (!fileType || strlen(fileType) <= 1 || strchr(fileType, '/')) { //directory
+		type = "text/html";
+	}
+	else if (strcmp(fileType, ".html") == 0) {
+		type = "text/html";
+	}
+	else if (strcmp(fileType, ".txt") == 0) {
+		type = "text/plain";
+	}
+	else if (strcmp(fileType, ".jpg") == 0) {
+		type = "image/jpg";
+	}
+	else if (strcmp(fileType, ".gif") == 0) {
+		type = "image/gif";
+	}
+	else {
+		type = "text/plain";
+		dprintf("Unknown file type\n");
+	}
+	char contentTypeLine[LINE_LENGTH];
+	sprintf(contentTypeLine, "Content-Type: %s\r\n", type);
+	write(sock, contentTypeLine, strlen(contentTypeLine));
+	dprintf("%s", contentTypeLine);
+
+	return type;
+}
+
+int writeContentLengthLine(int sock, char URI[], bool isDirectory, char dirBuf[]) {
+	int fileLength;
+	if (!isDirectory) {
+		struct stat filestat;
+		stat(URI, &filestat);
+		if (fopen(URI, "r") && S_ISREG(filestat.st_mode)) {
+			fileLength = filestat.st_size;
+		}
+	}
+	else {
+		generateDirectory(URI, dirBuf);
+		fileLength = strlen(dirBuf);
+	}
+
+	char contentLength[LINE_LENGTH];
+	sprintf(contentLength, "Content-Length: %d\r\n", fileLength);
+	write(sock, contentLength, strlen(contentLength));
+	dprintf("%s", contentLength);
+
+	return fileLength;
 }
 
 void generateDirectory(char URI[], char buf[]) {
@@ -53,14 +149,40 @@ void generateDirectory(char URI[], char buf[]) {
 	strcat(buf, "</ul>\r\n</body>\r\n</html>");
 }
 
+void writeEndOfHeaders(int sock) {
+	char other[] = "Connection: close\r\n";
+	write(sock, other, strlen(other));
+	dprintf("%s", other);
+
+	//write a blank line
+	char blank[] = "\r\n";
+	write(sock, blank, strlen(blank));
+	dprintf("%s\n", blank);
+}
+
+void writeFile(int sock, char URI[], bool isDirectory, int fileLength, char dirBuf[]) {
+	if (!isDirectory) {
+		dprintf("about to read from %s\n", URI);
+		FILE* file = fopen(URI, "r");
+		int fd = fileno(file);
+		off_t* offset;
+
+		if(_sendfile(sock, fd, NULL, fileLength) < 0) {
+			dprintf("Error writing file to socket: %d", errno);
+		}
+		fclose(file);
+	}
+	else {
+		dprintf("about to read directory listing\n%s", dirBuf);
+		write(sock, dirBuf, strlen(dirBuf));
+	}
+}
+
 void serve(int tid, std::string rootPath) {
 	while(true) {
 		qMutex.lock();
 		int sock = q.pop();
 		dprintf("serving %d\n", sock);
-
-		bool isDirectory = false;
-		char dirBuf[BUFFER_LENGTH];
 
 		char cmd[LINE_LENGTH];
 		char URI[LINE_LENGTH];
@@ -82,110 +204,20 @@ void serve(int tid, std::string rootPath) {
 		}
 
 		//write the status line
-		int status = 200;
-		char message[LINE_LENGTH];
-		sprintf(message, "OK");
-		long int fileLength;
-		struct stat filestat;
-		int statError = stat(URI, &filestat);
-
-		if (!statError && S_ISREG(filestat.st_mode)) {
-			dprintf("Found a file\n");
-		}
-		else if (!statError && S_ISDIR(filestat.st_mode)) {
-			dprintf("Found a directory\n");
-			//check for index.html page
-			char indexURI[LINE_LENGTH];
-			sprintf(indexURI, "%s/index.html", URI);
-
-			stat(indexURI, &filestat);
-			if (S_ISREG(filestat.st_mode)) { //use the index.html page
-				sprintf(URI, "%s", indexURI);
-				dprintf("%s\n", URI);
-			}
-			else { //output a directory listing
-				dprintf("%s is not an index file\n", indexURI);
-				isDirectory = true;
-				generateDirectory(URI, dirBuf);
-				fileLength = strlen(dirBuf);
-			}
-		}
-		else {
-			status = 404;
-			sprintf(message, "Not Found");
-			sprintf(URI, "404.html");
-		}
-
-		char statusLine[LINE_LENGTH];
-		sprintf(statusLine, "HTTP/1.1 %d %s\r\n", status, message);
-		write(sock, statusLine, strlen(statusLine));
-		dprintf("%s", statusLine);
+		bool isDirectory = writeStatusLine(sock, URI);
 
 		//write the Content-Type line
-		dprintf("file type of: %s\n", URI);
-		const char* fileType = strrchr(URI, '.');
-		const char* type;
-		dprintf("%s\n", fileType);
-		if (!fileType || strlen(fileType) <= 1 || strchr(fileType, '/')) { //directory
-			type = "text/html";
-		}
-		else if (strcmp(fileType, ".html") == 0) {
-			type = "text/html";
-		}
-		else if (strcmp(fileType, ".txt") == 0) {
-			type = "text/plain";
-		}
-		else if (strcmp(fileType, ".jpg") == 0) {
-			type = "image/jpg";
-		}
-		else if (strcmp(fileType, ".gif") == 0) {
-			type = "image/gif";
-		}
-		else {
-			type = "text/plain";
-			dprintf("Unknown file type\n");
-		}
-		char contentTypeLine[LINE_LENGTH];
-		sprintf(contentTypeLine, "Content-Type: %s\r\n", type);
-		write(sock, contentTypeLine, strlen(contentTypeLine));
-		dprintf("%s", contentTypeLine);
+		writeContentTypeLine(sock, URI);
 
 		//write the Content-Length line
-		stat(URI, &filestat);
-		if (fopen(URI, "r") && S_ISREG(filestat.st_mode)) {
-			fileLength = filestat.st_size;
-		}
-		char contentLength[LINE_LENGTH];
-		sprintf(contentLength, "Content-Length: %ld\r\n", fileLength);
-		write(sock, contentLength, strlen(contentLength));
-		dprintf("%s", contentLength);
+		char dirBuf[BUFFER_LENGTH];
+		int fileLength = writeContentLengthLine(sock, URI, isDirectory, dirBuf);
 
-		//write the rest of the response headers
-		char other[] = "Connection: close\r\n";
-		write(sock, other, strlen(other));
-		dprintf("%s", other);
-
-		//write a blank line
-		char blank[] = "\r\n";
-		write(sock, blank, strlen(blank));
-		dprintf("%s\n", blank);
+		//write the rest of the response headers and a blank line
+		writeEndOfHeaders(sock);
 
 		//write the file
-		if (!isDirectory) {
-			dprintf("about to read from %s\n", URI);
-			FILE* file = fopen(URI, "r");
-			int fd = fileno(file);
-			off_t* offset;
-
-			if(_sendfile(sock, fd, NULL, fileLength) < 0) {
-				dprintf("Error writing file to socket: %d", errno);
-			}
-			fclose(file);
-		}
-		else {
-			dprintf("about to read directory listing\n%s", dirBuf);
-			write(sock, dirBuf, strlen(dirBuf));
-		}
+		writeFile(sock, URI, isDirectory, fileLength, dirBuf);
 
 		shutdown(sock, SHUT_RDWR);
 		close(sock);

@@ -3,7 +3,7 @@
 
 #include <stdio.h>
 
-#define DEBUG false
+#define DEBUG true
 
 #define dprintf(...) do { if (DEBUG) fprintf(stderr, __VA_ARGS__); } while (0)
 
