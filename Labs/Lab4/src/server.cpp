@@ -185,7 +185,6 @@ void writeFile(int sock, char URI[], int fileLength) {
 	FILE* file = fopen(URI, "r");
 	int fd = fileno(file);
 	off_t* offset;
-
 	if(_sendfile(sock, fd, NULL, fileLength) < 0) {
 		dprintf("Error writing file to socket: %d", errno);
 	}
@@ -201,7 +200,7 @@ void serve(int tid, std::string rootPath) {
 	while(true) {
 		qMutex.lock();
 		int sock = q.pop();
-		dprintf("serving %d\n", sock);
+		dprintf("serving socket %d with thread %d\n", sock, tid);
 
 		char cmd[LINE_LENGTH];
 		char URI[LINE_LENGTH];
