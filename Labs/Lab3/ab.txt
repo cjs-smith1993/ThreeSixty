@@ -1,0 +1,54 @@
+ ab -n 10000 -c 200 http://ebola.cs.byu.edu:3570/
+This is ApacheBench, Version 2.3 <$Revision: 1554214 $>
+Copyright 1996 Adam Twiss, Zeus Technology Ltd, http://www.zeustech.net/
+Licensed to The Apache Software Foundation, http://www.apache.org/
+
+Benchmarking ebola.cs.byu.edu (be patient)
+Completed 1000 requests
+Completed 2000 requests
+Completed 3000 requests
+Completed 4000 requests
+Completed 5000 requests
+Completed 6000 requests
+Completed 7000 requests
+Completed 8000 requests
+Completed 9000 requests
+Completed 10000 requests
+Finished 10000 requests
+
+
+Server Software:        Apache/2.2.11
+Server Hostname:        ebola.cs.byu.edu
+Server Port:            3570
+
+Document Path:          /
+Document Length:        44 bytes
+
+Concurrency Level:      200
+Time taken for tests:   15.691 seconds
+Complete requests:      10000
+Failed requests:        0
+Total transferred:      2990000 bytes
+HTML transferred:       440000 bytes
+Requests per second:    637.32 [#/sec] (mean)
+Time per request:       313.815 [ms] (mean)
+Time per request:       1.569 [ms] (mean, across all concurrent requests)
+Transfer rate:          186.09 [Kbytes/sec] received
+
+Connection Times (ms)
+              min  mean[+/-sd] median   max
+Connect:        2  113 266.2     45    2411
+Processing:     5  191 201.2    137    5423
+Waiting:        5  189 201.0    134    5421
+Total:          8  304 344.9    206    5720
+
+Percentage of the requests served within a certain time (ms)
+  50%    206
+  66%    265
+  75%    305
+  80%    341
+  90%    560
+  95%   1055
+  98%   1448
+  99%   1758
+ 100%   5720 (longest request)
