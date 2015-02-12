@@ -1,23 +1,28 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string>
-#include <vector>
-#include <thread>
-#include <sys/stat.h>
-#include <dirent.h>
-#include <sys/sendfile.h>
-
-#include "sockets.h"
-#include "headers.h"
-#include "debug.h"
-#include "concurrentQueue.h"
-
-#define LINE_LENGTH 50
-#define BUFFER_LENGTH 10000
+#include "server.h"
 
 ConcurrentQueue q;
 std::mutex qMutex;
+
+void canonicalizeURI(std::string root, char URI[]) {
+	std::string rootCopy = root.c_str();
+	dprintf("\nBEFORE\nroot: %s\nURI: %s", rootCopy.c_str(), URI);
+
+	if (rootCopy[0] != '/') {
+		rootCopy = "/" + rootCopy;
+	}
+	if (rootCopy[rootCopy.length()-1] == '/') {
+		rootCopy = rootCopy.substr(0, rootCopy.length()-1);
+	}
+	rootCopy = "." + rootCopy;
+
+	if (URI[strlen(URI)-1] == '/') {
+		URI[strlen(URI)-1] = '\0';
+	}
+	dprintf("\nAFTER\nroot: %s\nURI: %s", rootCopy.c_str(), URI);
+
+	std::string tempURI = rootCopy + std::string(URI);
+	strcpy(URI, tempURI.c_str());
+}
 
 void generateDirectory(char URI[], char buf[]) {
 	dprintf("%s\n", URI);
@@ -67,24 +72,7 @@ void serve(int tid, std::string rootPath) {
 		sscanf(line, "%s %s HTTP/%lf", cmd, URI, &version);
 
 		//normalize root path and URI
-		std::string root = rootPath.c_str();
-		dprintf("\nBEFORE\nroot: %s\nURI: %s", root.c_str(), URI);
-
-		if (root[0] != '/') {
-			root = "/" + root;
-		}
-		if (root[root.length()-1] == '/') {
-			root = root.substr(0, root.length()-1);
-		}
-		root = "." + root;
-
-		if (URI[strlen(URI)-1] == '/') {
-			URI[strlen(URI)-1] = '\0';
-		}
-		dprintf("\nAFTER\nroot: %s\nURI: %s", root.c_str(), URI);
-
-		std::string tempURI = root + std::string(URI);
-		strcpy(URI, tempURI.c_str());
+		canonicalizeURI(rootPath, URI);
 		dprintf("\n----------------\nCommand: %s\nURI: %s\nHTTP version: %lf\n\n", cmd, URI, version);
 
 		//read the rest of the request headers
@@ -189,7 +177,7 @@ void serve(int tid, std::string rootPath) {
 			int fd = fileno(file);
 			off_t* offset;
 
-			if(sendfile(sock, fd, NULL, fileLength) < 0) {
+			if(_sendfile(sock, fd, NULL, fileLength) < 0) {
 				dprintf("Error writing file to socket: %d", errno);
 			}
 			fclose(file);
@@ -242,7 +230,7 @@ int main(int argc, char* argv[]) {
 
 	dprintf("accept connections to socket\n");
 	int newSocket;
-	while (newSocket = sockAccept(socket, (struct sockaddr*)&address)) {
+	while ((newSocket = sockAccept(socket, (struct sockaddr*)&address))) {
 		dprintf("Adding new task: %d\n", newSocket);
 		q.push(newSocket);
 		qMutex.unlock();
