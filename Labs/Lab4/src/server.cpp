@@ -207,7 +207,7 @@ void serve(int tid, std::string rootPath) {
 		bool isDirectory = writeStatusLine(sock, URI);
 
 		//write the Content-Type line
-		writeContentTypeLine(sock, URI);
+		std::string type = writeContentTypeLine(sock, URI);
 
 		//write the Content-Length line
 		char dirBuf[BUFFER_LENGTH];
