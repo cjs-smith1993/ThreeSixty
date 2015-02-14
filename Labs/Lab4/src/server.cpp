@@ -213,15 +213,15 @@ void serve(int tid, std::string rootPath) {
 
 		//normalize root path and URI
 		canonicalizeURI(rootPath, URI);
-		dprintf("\n----------------\nCommand: %s\nURI: %s\nHTTP version: %lf\n----------------\n", cmd, URI, version);
+		dprintf("Command: %s\nURI: %s\nHTTP version: %lf\n", cmd, URI, version);
 
 		//read the rest of the request headers
 		std::vector<char*> headerLines;
 		GetHeaderLines(headerLines, sock, true);
 
-		for (int i = 0; i < headerLines.size(); i++) {
-			dprintf("%s\n", headerLines[i]);
-		}
+		// for (int i = 0; i < headerLines.size(); i++) {
+		// 	dprintf("%s\n", headerLines[i]);
+		// }
 
 		//write the status line
 		int status = getStatus(sock, URI);
@@ -246,6 +246,8 @@ void serve(int tid, std::string rootPath) {
 
 		shutdown(sock, SHUT_RDWR);
 		close(sock);
+
+		dprintf("----------------\n");
 	}
 }
 
@@ -267,10 +269,18 @@ int main(int argc, char* argv[]) {
 	std::vector<std::thread> workers;
 	for (int i = 0; i < numThreads; i++) {
 		workers.push_back(std::thread(serve, i, dir));
+		usleep(30);
 	}
+
+	dprintf("ignore closed socket");
+	signal(SIGPIPE, SIG_IGN);
 
 	dprintf("create a socket\n");
 	int socket = sockCreate();
+
+	dprintf("allow socket to be reused\n");
+	int optval = 1;
+	setsockopt(socket, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
 
 	dprintf("convert address\n");
 	struct sockaddr_in address = createAddress(port);
@@ -280,10 +290,6 @@ int main(int argc, char* argv[]) {
 
 	dprintf("listen to socket\n");
 	sockListen(socket);
-
-	dprintf("allow socket to be reused\n");
-	int optval = 1;
-	setsockopt(socket, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
 
 	dprintf("accept connections to socket\n");
 	int newSocket;
