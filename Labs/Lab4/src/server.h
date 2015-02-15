@@ -9,6 +9,7 @@
 #include <thread>
 #include <sys/stat.h>
 #include <dirent.h>
+#include <signal.h>
 
 #if __APPLE__
 	#include <sys/types.h>
@@ -47,7 +48,7 @@ int _sendfile(int sock, int fd, off_t* offset, size_t length) {
 		long long* newLength = &longLength;
 		return sendfile(fd, sock, (off_t) NULL, newLength, NULL, 0);
 	#else
-		return senfile(sock, fd, offset, length);
+		return sendfile(sock, fd, offset, length);
 	#endif
 }
 

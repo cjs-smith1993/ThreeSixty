@@ -200,7 +200,11 @@ void serve(int tid, std::string rootPath) {
 	while(true) {
 		qMutex.lock();
 		int sock = q.pop();
-		dprintf("serving socket %d with thread %d\n", sock, tid);
+		printf("serving socket %d with thread %d\n", sock, tid);
+
+		dprintf("allow socket to be reused\n");
+		int optval = 1;
+		setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
 
 		char cmd[LINE_LENGTH];
 		char URI[LINE_LENGTH];
@@ -294,7 +298,7 @@ int main(int argc, char* argv[]) {
 	dprintf("accept connections to socket\n");
 	int newSocket;
 	while ((newSocket = sockAccept(socket, (struct sockaddr*)&address))) {
-		dprintf("Adding new task: %d\n", newSocket);
+		printf("Adding new task: %d\n", newSocket);
 		q.push(newSocket);
 		qMutex.unlock();
 	}
