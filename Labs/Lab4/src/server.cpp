@@ -81,7 +81,7 @@ int getStatus(int sock, char URI[]) {
 
 void writeStatusLine(int sock, int status, std::string message) {
 	char statusLine[LINE_LENGTH];
-	sprintf(statusLine, "HTTP/1.1 %d %s\r\n", status, message.c_str());
+	sprintf(statusLine, "HTTP/1.0 %d %s\r\n", status, message.c_str());
 	write(sock, statusLine, strlen(statusLine));
 	dprintf("%s", statusLine);
 }
@@ -105,6 +105,9 @@ std::string getContentType(int sock, char URI[]) {
 	}
 	else if (strcmp(fileType, ".gif") == 0) {
 		type = "image/gif";
+	}
+	else if (strcmp(fileType, ".cgi") == 0 || strcmp(fileType, ".pl") == 0) {
+		type = "dynamic";
 	}
 	else {
 		type = "text/plain";
@@ -196,6 +199,67 @@ void writeFile(int sock, char dirBuf[]) {
 	write(sock, dirBuf, strlen(dirBuf));
 }
 
+void runCGI(int sock, char URI[], std::vector<char *> headerLines) {
+	dprintf("running CGI script at %s\n", URI);
+
+	// redirect output
+	int ServeToCGIpipefd[2];
+	int CGIToServepipefd[2];
+	pipe(ServeToCGIpipefd);
+	pipe(CGIToServepipefd);
+
+	int pid = fork();
+	if (pid == 0) {
+
+		close(ServeToCGIpipefd[1]);		// close the write side of the pipe from the server
+		dup2(ServeToCGIpipefd[0], 0);	// dup the pipe to stdin
+		close(CGIToServepipefd[0]);		// close the read side of the pipe to the server
+		dup2(CGIToServepipefd[1], 1);	// dup the pipe to stdout
+
+		int numArgs = headerLines.size();
+		char* args[numArgs+1];
+		for (int i = 0; i < numArgs; i++) {
+			args[i] = headerLines[i];
+			// dprintf("%s", args[i]);
+		}
+		args[numArgs] = NULL;
+
+		char* env[1];
+		env[0] = NULL;
+		execve(URI, args, env);
+	}
+	else {
+		close(ServeToCGIpipefd[0]);		// close the read side of the pipe to the CGI script
+		close(CGIToServepipefd[1]);		// close the write side of the pipe from the CGI script
+
+		// if request is a POST
+		// 	get content length from the request headers
+		// 	amtread = 0
+		// 	while (amtread < contentlength && amt = read(socket, buffer, MAXBUFLEN) )
+		// 		amtread += amt
+		// 		write (ServeToCGIpipefd[1], buffer, amt);
+
+		// Read from the CGIToServepipefd[0] until you get an error and write this data to the socket
+		char buf[BUFFER_LENGTH];
+		int totalNumRead = 0;
+		int numRead = 0;
+		while ((numRead = read(CGIToServepipefd[0], buf+totalNumRead, 1))) {
+			totalNumRead += numRead;
+		}
+		buf[totalNumRead] = '\0';
+		dprintf("%s", buf);
+		write(sock, buf, strlen(buf));
+
+		close(ServeToCGIpipefd[1]); // all done, close the pipe
+		close(CGIToServepipefd[0]); // all done, close the pipe
+
+		shutdown(sock, SHUT_RDWR);
+		close(sock);
+
+		dprintf("----------------\n");
+	}
+}
+
 void serve(int tid, std::string rootPath) {
 	while(true) {
 		qMutex.lock();
@@ -235,6 +299,10 @@ void serve(int tid, std::string rootPath) {
 
 		//write the Content-Type line
 		std::string type = getContentType(sock, URI);
+		if (strcmp(type.c_str(), "dynamic") == 0) { // handle CGI scripts separately
+			runCGI(sock, URI, headerLines);
+			return;
+		}
 		writeContentTypeLine(sock, type);
 
 		//write the Content-Length line
