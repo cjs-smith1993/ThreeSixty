@@ -79,9 +79,8 @@ void GetHeaderLines(std::vector<char *> &headerLines, int skt, bool envformat) {
 	while(strlen(tline) != 0) {
 		if (strstr(tline, "Content-Length") || strstr(tline, "Content-Type")) {
 			if (envformat) {
-				char* str;
-				strcpy(str, "");
-				line = FormatHeader(tline, str);
+				std::string str = "";
+				line = FormatHeader(tline, &str[0]);
 			}
 			else {
 				line = strdup(tline);
@@ -89,9 +88,8 @@ void GetHeaderLines(std::vector<char *> &headerLines, int skt, bool envformat) {
 		}
 		else {
 			if (envformat) {
-				char* str;
-				strcpy(str, "HTTP_");
-				line = FormatHeader(tline, str);
+				std::string str = "HTTP_";
+				line = FormatHeader(tline, &str[0]);
 			}
 			else {
 				line = (char *)malloc((strlen(tline) + 10) * sizeof(char));
