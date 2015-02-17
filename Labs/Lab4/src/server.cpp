@@ -60,12 +60,12 @@ int getStatus(int sock, char URI[]) {
 		if (S_ISREG(filestat.st_mode)) {
 		}
 		else if (S_ISDIR(filestat.st_mode)) {
-			//check for index.html page
+			// check for index.html page
 			char indexURI[LINE_LENGTH];
 			sprintf(indexURI, "%s/index.html", URI);
 
 			stat(indexURI, &filestat);
-			if (S_ISREG(filestat.st_mode)) { //use the index.html page
+			if (S_ISREG(filestat.st_mode)) { // use the index.html page
 				sprintf(URI, "%s", indexURI);
 			}
 			else { //output a directory listing
@@ -177,7 +177,7 @@ void writeEndOfHeaders(int sock) {
 	write(sock, other, strlen(other));
 	dprintf("%s", other);
 
-	//write a blank line
+	// write a blank line
 	char blank[] = "\r\n";
 	write(sock, blank, strlen(blank));
 	dprintf("%s\n", blank);
@@ -198,17 +198,18 @@ void writeFile(int sock, char dirBuf[]) {
 }
 
 void runCGI(int sock, std::string requestMethod, char URI[], std::vector<char *> headerLines) {
-	dprintf("running CGI script at %s\n", URI);
+	dprintf("running CGI script\n");
 
-	// redirect output
+	// pipes between parent and child
 	int ServeToCGIpipefd[2];
 	int CGIToServepipefd[2];
 	pipe(ServeToCGIpipefd);
 	pipe(CGIToServepipefd);
 
 	int pid = fork();
-	if (pid == 0) {
+	if (pid == 0) { // child process
 
+		// set up pipes between parent and child
 		close(ServeToCGIpipefd[1]);		// close the write side of the pipe from the server
 		dup2(ServeToCGIpipefd[0], 0);	// dup the pipe to stdin
 		close(CGIToServepipefd[0]);		// close the read side of the pipe to the server
@@ -258,12 +259,13 @@ void runCGI(int sock, std::string requestMethod, char URI[], std::vector<char *>
 
 		env[numEnv] = NULL;
 
+		// trim the URI before executing the script name
 		char trimmedURI[LINE_LENGTH];
 		trimURI(URI, trimmedURI);
 
 		execve(trimmedURI, args, env);
 	}
-	else {
+	else { // parent process
 		close(ServeToCGIpipefd[0]);		// close the read side of the pipe to the CGI script
 		close(CGIToServepipefd[1]);		// close the write side of the pipe from the CGI script
 
@@ -274,7 +276,7 @@ void runCGI(int sock, std::string requestMethod, char URI[], std::vector<char *>
 		// 		amtread += amt
 		// 		write (ServeToCGIpipefd[1], buffer, amt);
 
-		// Read from the CGIToServepipefd[0] until you get an error and write this data to the socket
+		// read from the child and write to the socket
 		char buf[BUFFER_LENGTH];
 		int totalNumRead = 0;
 		int numRead = 0;
@@ -282,11 +284,12 @@ void runCGI(int sock, std::string requestMethod, char URI[], std::vector<char *>
 			totalNumRead += numRead;
 		}
 		buf[totalNumRead] = '\0';
-		dprintf("%s", buf);
+		// dprintf("%s", buf);
 		write(sock, buf, strlen(buf));
 
-		close(ServeToCGIpipefd[1]); // all done, close the pipe
-		close(CGIToServepipefd[0]); // all done, close the pipe
+		// close the pipes
+		close(ServeToCGIpipefd[1]);
+		close(CGIToServepipefd[0]);
 
 		shutdown(sock, SHUT_RDWR);
 		close(sock);
@@ -309,15 +312,15 @@ void serve(int tid, std::string rootPath) {
 		memset(URI, 0, LINE_LENGTH);
 		double version;
 
-		//read the request line
+		// read the request line
 		char* line = GetLine(sock);
 		sscanf(line, "%s %s HTTP/%lf", requestMethod, URI, &version);
 
-		//normalize root path and URI
+		// normalize root path and URI
 		canonicalizeURI(rootPath, URI);
 		dprintf("Command: %s\nURI: %s\nHTTP version: %lf\n", requestMethod, URI, version);
 
-		//read the rest of the request headers
+		// read the rest of the request headers
 		std::vector<char*> headerLines;
 		GetHeaderLines(headerLines, sock, true);
 
@@ -325,17 +328,17 @@ void serve(int tid, std::string rootPath) {
 		// 	dprintf("%s\n", headerLines[i]);
 		// }
 
-		//trim query string from URI
+		// trim the query string from URI
 		char trimmedURI[LINE_LENGTH];
 		trimURI(URI, trimmedURI);
 
-		//write the status line
+		// write the status line
 		int status = getStatus(sock, trimmedURI);
 		std::string message = getMessage(status);
 		bool isDir = isDirectory(trimmedURI);
 		writeStatusLine(sock, status, message);
 
-		//write the Content-Type line
+		// write the Content-Type line
 		std::string type = getContentType(sock, trimmedURI);
 		if (strcmp(type.c_str(), "dynamic") == 0) { // handle CGI scripts separately
 			runCGI(sock, requestMethod, URI, headerLines);
@@ -343,17 +346,18 @@ void serve(int tid, std::string rootPath) {
 		}
 		writeContentTypeLine(sock, type);
 
-		//write the Content-Length line
+		// write the Content-Length line
 		char dirBuf[BUFFER_LENGTH];
 		int fileLength = isDir ? generateDirectory(trimmedURI, dirBuf) : getContentLength(sock, trimmedURI);
 		writeContentLengthLine(sock, fileLength);
 
-		//write the rest of the response headers and a blank line
+		// write the rest of the response headers and a blank line
 		writeEndOfHeaders(sock);
 
-		//write the file
+		// write the file
 		isDir ? writeFile(sock, dirBuf) : writeFile(sock, trimmedURI, fileLength);
 
+		// close the socket
 		shutdown(sock, SHUT_RDWR);
 		close(sock);
 
@@ -362,10 +366,10 @@ void serve(int tid, std::string rootPath) {
 }
 
 int main(int argc, char* argv[]) {
-	//lock signal semaphore
+	// lock the signal semaphore
 	qMutex.lock();
 
-	//parse arguments
+	// parse the arguments
 	if (argc < 4) {
 		printf("Usage: server <port number> <num threads> <dir>\n");
 		exit(0);
@@ -375,43 +379,38 @@ int main(int argc, char* argv[]) {
 	int numThreads = atoi(argv[2]);
 	char* dir = argv[3];
 
-	//create thread pool
+	// create the thread pool
 	std::vector<std::thread> workers;
 	for (int i = 0; i < numThreads; i++) {
 		workers.push_back(std::thread(serve, i, dir));
 		usleep(30);
 	}
 
-	dprintf("ignore closed socket");
 	signal(SIGPIPE, SIG_IGN);
 
-	dprintf("create a socket\n");
+	// create a socket
 	int socket = sockCreate();
 
-	dprintf("allow socket to be reused\n");
 	int optval = 1;
 	setsockopt(socket, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
 
-	dprintf("convert address\n");
+	// convert address
 	struct sockaddr_in address = createAddress(port);
 
-	dprintf("bind socket to address\n");
+	// bind socket to address
 	sockBind(socket, (struct sockaddr*)&address);
 
-	dprintf("listen to socket\n");
+	// listen to socket
 	sockListen(socket);
 
-	dprintf("accept connections to socket\n\n");
+	dprintf("setup complete\n----------------\n");
+
+	// accept connections to socket
 	int newSocket;
 	while ((newSocket = sockAccept(socket, (struct sockaddr*)&address))) {
-		printf("Adding new task: %d\n", newSocket);
+		printf("adding new task on socket %d\n", newSocket);
 		q.push(newSocket);
 		qMutex.unlock();
-	}
-
-	dprintf("all done. Cleaning up thread pool\n");
-	for (auto &thread: workers) {
-		thread.join();
 	}
 
 }
