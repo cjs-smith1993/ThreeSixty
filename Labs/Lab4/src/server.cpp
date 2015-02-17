@@ -241,7 +241,7 @@ void runCGI(int sock, std::string requestMethod, char URI[], std::vector<char *>
 		sprintf(env_interface, "GATEWAY_INTERFACE=%s", "CGI/1.1");
 		sprintf(env_requestURI, "REQUEST_URI=%s", URI);
 		sprintf(env_requestMethod, "REQUEST_METHOD=%s", requestMethod.c_str());
-		sprintf(env_queryString, "QUERY_STRING=%s", queryStringPtr+0);
+		sprintf(env_queryString, "QUERY_STRING=%s", queryStringPtr+1);
 
 		env[0] = env_interface;
 		env[1] = env_requestURI;
