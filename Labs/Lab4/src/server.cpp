@@ -365,14 +365,14 @@ void serve(int tid, std::string rootPath) {
 
 		//write the Content-Length line
 		char dirBuf[BUFFER_LENGTH];
-		int fileLength = isDir ? generateDirectory(URI, dirBuf) : getContentLength(sock, URI);
+		int fileLength = isDir ? generateDirectory(trimmedURI, dirBuf) : getContentLength(sock, trimmedURI);
 		writeContentLengthLine(sock, fileLength);
 
 		//write the rest of the response headers and a blank line
 		writeEndOfHeaders(sock);
 
 		//write the file
-		isDir ? writeFile(sock, dirBuf) : writeFile(sock, URI, fileLength);
+		isDir ? writeFile(sock, dirBuf) : writeFile(sock, trimmedURI, fileLength);
 
 		shutdown(sock, SHUT_RDWR);
 		close(sock);
