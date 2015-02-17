@@ -269,12 +269,35 @@ void runCGI(int sock, std::string requestMethod, char URI[], std::vector<char *>
 		close(ServeToCGIpipefd[0]);		// close the read side of the pipe to the CGI script
 		close(CGIToServepipefd[1]);		// close the write side of the pipe from the CGI script
 
-		// if request is a POST
-		// 	get content length from the request headers
-		// 	amtread = 0
-		// 	while (amtread < contentlength && amt = read(socket, buffer, MAXBUFLEN) )
-		// 		amtread += amt
-		// 		write (ServeToCGIpipefd[1], buffer, amt);
+		if (strcmp(requestMethod.c_str(), "POST") == 0) {
+			// get content length
+			int contentLength = -1;
+			for (int i = 0; i < headerLines.size(); i++) {
+				std::string searchString = "CONTENT_LENGTH=";
+				std::string header = headerLines[i];
+				int idx = header.find(searchString);
+				if (idx >= 0) {
+					std::string sub = header.substr(searchString.length());
+					contentLength = atoi(sub.c_str());
+				}
+			}
+
+			// read POST data from request
+			char buf[contentLength+1];
+			int totalNumRead = 0;
+			int numRead = 0;
+			while (totalNumRead < contentLength) {
+				numRead = read(sock, buf+totalNumRead, contentLength-totalNumRead);
+				totalNumRead += numRead;
+				if (numRead == 0) {
+					break;
+				}
+			}
+			buf[contentLength] = '\0';
+
+			// send data to CGI script
+			write(ServeToCGIpipefd[1], buf, contentLength);
+		}
 
 		// read from the child and write to the socket
 		char buf[BUFFER_LENGTH];
