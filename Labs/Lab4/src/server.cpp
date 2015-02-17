@@ -13,7 +13,6 @@ void trimURI(char URI[], char trimmedURI[]) {
 
 void canonicalizeURI(std::string root, char URI[]) {
 	std::string rootCopy = root.c_str();
-	// dprintf("\nBEFORE\nroot: %s\nURI: %s", rootCopy.c_str(), URI);
 
 	if (rootCopy[0] != '/') {
 		rootCopy = "/" + rootCopy;
@@ -26,7 +25,6 @@ void canonicalizeURI(std::string root, char URI[]) {
 	if (URI[strlen(URI)-1] == '/') {
 		URI[strlen(URI)-1] = '\0';
 	}
-	// dprintf("\nAFTER\nroot: %s\nURI: %s", rootCopy.c_str(), URI);
 
 	std::string tempURI = rootCopy + std::string(URI);
 	strcpy(URI, tempURI.c_str());
@@ -60,10 +58,8 @@ int getStatus(int sock, char URI[]) {
 
 	if (!statError) {
 		if (S_ISREG(filestat.st_mode)) {
-			// dprintf("Found a file\n");
 		}
 		else if (S_ISDIR(filestat.st_mode)) {
-			// dprintf("Found a directory\n");
 			//check for index.html page
 			char indexURI[LINE_LENGTH];
 			sprintf(indexURI, "%s/index.html", URI);
@@ -71,10 +67,8 @@ int getStatus(int sock, char URI[]) {
 			stat(indexURI, &filestat);
 			if (S_ISREG(filestat.st_mode)) { //use the index.html page
 				sprintf(URI, "%s", indexURI);
-				dprintf("%s\n", URI);
 			}
 			else { //output a directory listing
-				// dprintf("%s is not an index file\n", indexURI);
 				// isDirectory = true;
 			}
 		}
@@ -95,10 +89,9 @@ void writeStatusLine(int sock, int status, std::string message) {
 }
 
 std::string getContentType(int sock, char URI[]) {
-	// dprintf("file type of: %s\n", URI);
 	const char* fileType = strrchr(URI, '.');
 	const char* type;
-	// dprintf("%s\n", fileType);
+
 	if (!fileType || strlen(fileType) <= 1 || strchr(fileType, '/')) { //directory
 		type = "text/html";
 	}
@@ -150,7 +143,6 @@ void writeContentLengthLine(int sock, int fileLength) {
 }
 
 int generateDirectory(char URI[], char buf[]) {
-	dprintf("%s\n", URI);
 	strcpy(buf, "<html>\r\n<body>\r\n<h1>Index of ");
 	strcpy(buf, URI);
 	strcpy(buf, "</h1>\r\n<ul>\r\n");
@@ -192,7 +184,6 @@ void writeEndOfHeaders(int sock) {
 }
 
 void writeFile(int sock, char URI[], int fileLength) {
-	dprintf("about to read from %s\n", URI);
 	FILE* file = fopen(URI, "r");
 	int fd = fileno(file);
 	off_t* offset;
@@ -203,7 +194,6 @@ void writeFile(int sock, char URI[], int fileLength) {
 }
 
 void writeFile(int sock, char dirBuf[]) {
-	dprintf("about to read directory listing\n%s", dirBuf);
 	write(sock, dirBuf, strlen(dirBuf));
 }
 
@@ -229,7 +219,6 @@ void runCGI(int sock, std::string requestMethod, char URI[], std::vector<char *>
 		char* args[numArgs+1];
 		for (int i = 0; i < numArgs; i++) {
 			args[i] = headerLines[i];
-			dprintf("[%d] %s\n", i, args[i]);
 		}
 		args[numArgs] = NULL;
 
@@ -272,10 +261,6 @@ void runCGI(int sock, std::string requestMethod, char URI[], std::vector<char *>
 		}
 
 		env[numEnv] = NULL;
-
-		for (int i = 0; i < numEnv; i++) {
-			printf("%s\n", env[i]);
-		}
 
 		char trimmedURI[LINE_LENGTH];
 		trimURI(URI, trimmedURI);
@@ -320,7 +305,6 @@ void serve(int tid, std::string rootPath) {
 		int sock = q.pop();
 		printf("serving socket %d with thread %d\n", sock, tid);
 
-		dprintf("allow socket to be reused\n");
 		int optval = 1;
 		setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
 
@@ -421,7 +405,7 @@ int main(int argc, char* argv[]) {
 	dprintf("listen to socket\n");
 	sockListen(socket);
 
-	dprintf("accept connections to socket\n");
+	dprintf("accept connections to socket\n\n");
 	int newSocket;
 	while ((newSocket = sockAccept(socket, (struct sockaddr*)&address))) {
 		printf("Adding new task: %d\n", newSocket);
