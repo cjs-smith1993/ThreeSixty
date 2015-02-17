@@ -27,6 +27,8 @@
 #define LINE_LENGTH 500
 #define BUFFER_LENGTH 10000
 
+extern char** environ;
+
 void trimURI(char URI[], char trimmedURI[]);
 void canonicalizeURI(std::string root, char URI[]);
 bool isDirectory(char URI[]);

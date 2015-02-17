@@ -224,17 +224,63 @@ void runCGI(int sock, std::string requestMethod, char URI[], std::vector<char *>
 		close(CGIToServepipefd[0]);		// close the read side of the pipe to the server
 		dup2(CGIToServepipefd[1], 1);	// dup the pipe to stdout
 
+		// create args array
 		int numArgs = headerLines.size();
 		char* args[numArgs+1];
 		for (int i = 0; i < numArgs; i++) {
 			args[i] = headerLines[i];
-			// dprintf("%s", args[i]);
+			dprintf("[%d] %s\n", i, args[i]);
 		}
 		args[numArgs] = NULL;
 
-		char* env[1];
-		env[0] = NULL;
-		execve(URI, args, env);
+		// create env array
+		int minNumEnv = 4+numArgs;
+		int numEnv = minNumEnv; // at least 4 for general CGI vars + args + NULL
+		for (char **env = environ; *env != NULL; env++) {
+			numEnv++;
+		}
+		char* env[numEnv+1];
+
+		char queryString[LINE_LENGTH];
+		sprintf(queryString, "%s", strchr(URI, '?'));
+		if (queryString == NULL) {
+			queryString[0] = '?';
+		}
+		char* queryStringPtr = queryString;
+
+		char env_interface[LINE_LENGTH];
+		char env_requestURI[LINE_LENGTH];
+		char env_requestMethod[LINE_LENGTH];
+		char env_queryString[LINE_LENGTH];
+
+		sprintf(env_interface, "GATEWAY_INTERFACE=%s", "CGI/1.1");
+		sprintf(env_requestURI, "REQUEST_URI=%s", URI);
+		sprintf(env_requestMethod, "REQUEST_METHOD=%s", requestMethod.c_str());
+		sprintf(env_queryString, "QUERY_STRING=%s", queryStringPtr+0);
+
+		env[0] = env_interface;
+		env[1] = env_requestURI;
+		env[2] = env_requestMethod;
+		env[3] = env_queryString;
+
+		for (int i = 0; i < numArgs; i++) {
+			env[4+i] = args[i];
+		}
+
+		for (int i = minNumEnv; i < numEnv; i++) {
+			env[i] = environ[i-minNumEnv];
+		}
+
+		env[numEnv] = NULL;
+
+		for (int i = 0; i < numEnv; i++) {
+			printf("%s\n", env[i]);
+		}
+
+		char trimmedURI[LINE_LENGTH];
+		trimURI(URI, trimmedURI);
+
+		execve(trimmedURI, args, env);
 	}
 	else {
 		close(ServeToCGIpipefd[0]);		// close the read side of the pipe to the CGI script
@@ -251,7 +297,7 @@ void runCGI(int sock, std::string requestMethod, char URI[], std::vector<char *>
 		char buf[BUFFER_LENGTH];
 		int totalNumRead = 0;
 		int numRead = 0;
-		while ((numRead = read(CGIToServepipefd[0], buf+totalNumRead, 1))) {
+		while ((numRead = read(CGIToServepipefd[0], buf+totalNumRead, LINE_LENGTH))) {
 			totalNumRead += numRead;
 		}
 		buf[totalNumRead] = '\0';
