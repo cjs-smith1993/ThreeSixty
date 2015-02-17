@@ -3,6 +3,14 @@
 ConcurrentQueue q;
 std::mutex qMutex;
 
+void trimURI(char URI[], char trimmedURI[]) {
+	strcpy(trimmedURI, URI);
+	char* p = strchr(trimmedURI, '?');
+	if (p != NULL) {
+		*p = '\0';
+	}
+}
+
 void canonicalizeURI(std::string root, char URI[]) {
 	std::string rootCopy = root.c_str();
 	// dprintf("\nBEFORE\nroot: %s\nURI: %s", rootCopy.c_str(), URI);
@@ -199,7 +207,7 @@ void writeFile(int sock, char dirBuf[]) {
 	write(sock, dirBuf, strlen(dirBuf));
 }
 
-void runCGI(int sock, char URI[], std::vector<char *> headerLines) {
+void runCGI(int sock, std::string requestMethod, char URI[], std::vector<char *> headerLines) {
 	dprintf("running CGI script at %s\n", URI);
 
 	// redirect output
@@ -270,18 +278,18 @@ void serve(int tid, std::string rootPath) {
 		int optval = 1;
 		setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
 
-		char cmd[LINE_LENGTH];
+		char requestMethod[LINE_LENGTH];
 		char URI[LINE_LENGTH];
 		memset(URI, 0, LINE_LENGTH);
 		double version;
 
 		//read the request line
 		char* line = GetLine(sock);
-		sscanf(line, "%s %s HTTP/%lf", cmd, URI, &version);
+		sscanf(line, "%s %s HTTP/%lf", requestMethod, URI, &version);
 
 		//normalize root path and URI
 		canonicalizeURI(rootPath, URI);
-		dprintf("Command: %s\nURI: %s\nHTTP version: %lf\n", cmd, URI, version);
+		dprintf("Command: %s\nURI: %s\nHTTP version: %lf\n", requestMethod, URI, version);
 
 		//read the rest of the request headers
 		std::vector<char*> headerLines;
@@ -291,16 +299,20 @@ void serve(int tid, std::string rootPath) {
 		// 	dprintf("%s\n", headerLines[i]);
 		// }
 
+		//trim query string from URI
+		char trimmedURI[LINE_LENGTH];
+		trimURI(URI, trimmedURI);
+
 		//write the status line
-		int status = getStatus(sock, URI);
+		int status = getStatus(sock, trimmedURI);
 		std::string message = getMessage(status);
-		bool isDir = isDirectory(URI);
+		bool isDir = isDirectory(trimmedURI);
 		writeStatusLine(sock, status, message);
 
 		//write the Content-Type line
-		std::string type = getContentType(sock, URI);
+		std::string type = getContentType(sock, trimmedURI);
 		if (strcmp(type.c_str(), "dynamic") == 0) { // handle CGI scripts separately
-			runCGI(sock, URI, headerLines);
+			runCGI(sock, requestMethod, URI, headerLines);
 			return;
 		}
 		writeContentTypeLine(sock, type);
