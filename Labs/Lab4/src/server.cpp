@@ -217,7 +217,8 @@ void runCGI(int sock, std::string requestMethod, char URI[], std::vector<char *>
 
 		// create args array
 		int numArgs = headerLines.size();
-		char* args[0];
+		char* args[1];
+		args[0] = NULL;
 
 		// create env array
 		int minNumEnv = 4+numArgs;
