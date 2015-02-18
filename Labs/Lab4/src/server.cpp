@@ -222,9 +222,9 @@ void runCGI(int sock, std::string requestMethod, char URI[], std::vector<char *>
 		// create env array
 		int minNumEnv = 4+numArgs;
 		int numEnv = minNumEnv; // at least 4 for general CGI vars + args + NULL
-		for (char **env = environ; *env != NULL; env++) {
-			numEnv++;
-		}
+		// for (char **env = environ; *env != NULL; env++) {
+		// 	numEnv++;
+		// }
 		char* env[numEnv+1];
 
 		char queryString[LINE_LENGTH];
@@ -254,9 +254,9 @@ void runCGI(int sock, std::string requestMethod, char URI[], std::vector<char *>
 			env[4+i] = headerLines[i];
 		}
 
-		for (int i = minNumEnv; i < numEnv; i++) {
-			env[i] = environ[i-minNumEnv];
-		}
+		// for (int i = minNumEnv; i < numEnv; i++) {
+		// 	env[i] = environ[i-minNumEnv];
+		// }
 
 		env[numEnv] = NULL;
 
