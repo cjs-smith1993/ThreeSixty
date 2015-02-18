@@ -228,11 +228,12 @@ void runCGI(int sock, std::string requestMethod, char URI[], std::vector<char *>
 		char* env[numEnv+1];
 
 		char queryString[LINE_LENGTH];
-		sprintf(queryString, "%s", strchr(URI, '?'));
-		if (queryString == NULL) {
+		if (strchr(URI, '?') == NULL) {
 			queryString[0] = '?';
 		}
-		char* queryStringPtr = queryString;
+		else {
+			sprintf(queryString, "%s", strchr(URI, '?'));
+		}
 
 		char env_interface[LINE_LENGTH];
 		char env_requestURI[LINE_LENGTH];
@@ -242,7 +243,7 @@ void runCGI(int sock, std::string requestMethod, char URI[], std::vector<char *>
 		sprintf(env_interface, "GATEWAY_INTERFACE=%s", "CGI/1.1");
 		sprintf(env_requestURI, "REQUEST_URI=%s", URI);
 		sprintf(env_requestMethod, "REQUEST_METHOD=%s", requestMethod.c_str());
-		sprintf(env_queryString, "QUERY_STRING=%s", queryStringPtr+1);
+		sprintf(env_queryString, "QUERY_STRING=%s", ((char*)queryString)+1);
 
 		env[0] = env_interface;
 		env[1] = env_requestURI;
@@ -365,7 +366,7 @@ void serve(int tid, std::string rootPath) {
 		std::string type = getContentType(sock, trimmedURI);
 		if (strcmp(type.c_str(), "dynamic") == 0) { // handle CGI scripts separately
 			runCGI(sock, requestMethod, URI, headerLines);
-			return;
+			continue;
 		}
 		writeContentTypeLine(sock, type);
 
