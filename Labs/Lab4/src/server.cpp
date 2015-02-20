@@ -14,14 +14,12 @@ void trimURI(char URI[], char trimmedURI[]) {
 void canonicalizeURI(std::string root, char URI[]) {
 	std::string rootCopy = root.c_str();
 
-	if (rootCopy[0] != '/') {
-		rootCopy = "/" + rootCopy;
+	if (rootCopy[0] != '/' && root[0] != '.') {
+		rootCopy = "./" + rootCopy;
 	}
-	if (rootCopy[rootCopy.length()-1] == '/') {
+	if (rootCopy.length() > 1 && rootCopy[rootCopy.length()-1] == '/') {
 		rootCopy = rootCopy.substr(0, rootCopy.length()-1);
 	}
-	rootCopy = "." + rootCopy;
-
 	if (URI[strlen(URI)-1] == '/') {
 		URI[strlen(URI)-1] = '\0';
 	}
@@ -142,7 +140,7 @@ void writeContentLengthLine(int sock, int fileLength) {
 	dprintf("%s", contentLength);
 }
 
-int generateDirectory(char URI[], char buf[]) {
+int generateDirectory(int rootPathLength, char URI[], char buf[]) {
 	strcpy(buf, "<html>\r\n<body>\r\n<h1>Index of ");
 	strcpy(buf, URI);
 	strcpy(buf, "</h1>\r\n<ul>\r\n");
@@ -156,7 +154,7 @@ int generateDirectory(char URI[], char buf[]) {
 				continue;
 			}
 			strcat(buf, "<li><a href=\"");
-			strcat(buf, URI);
+			strcat(buf, URI+rootPathLength);
 			strcat(buf, "/");
 			strcat(buf, dir->d_name);
 			strcat(buf, "\"> ");
@@ -342,6 +340,7 @@ void serve(int tid, std::string rootPath) {
 		sscanf(line, "%s %s HTTP/%lf", requestMethod, URI, &version);
 
 		// normalize root path and URI
+		int rootPathLength = rootPath.length();
 		canonicalizeURI(rootPath, URI);
 		dprintf("Command: %s\nURI: %s\nHTTP version: %lf\n", requestMethod, URI, version);
 
@@ -373,7 +372,7 @@ void serve(int tid, std::string rootPath) {
 
 		// write the Content-Length line
 		char dirBuf[BUFFER_LENGTH];
-		int fileLength = isDir ? generateDirectory(trimmedURI, dirBuf) : getContentLength(sock, trimmedURI);
+		int fileLength = isDir ? generateDirectory(rootPathLength, trimmedURI, dirBuf) : getContentLength(sock, trimmedURI);
 		writeContentLengthLine(sock, fileLength);
 
 		// write the rest of the response headers and a blank line
