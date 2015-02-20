@@ -13,13 +13,13 @@
 #include "debug.h"
 #include "concurrentQueue.h"
 
-#define LINE_LENGTH 50
+#define LINE_LENGTH 5000
 #define BUFFER_LENGTH 10000
 
 ConcurrentQueue q;
 std::mutex qMutex;
 
-void generateDirectory(char URI[], char buf[]) {
+void generateDirectory(std::string rootPath, char URI[], char buf[]) {
 	dprintf("%s\n", URI);
 	strcpy(buf, "<html>\r\n<body>\r\n<h1>Index of ");
 	strcpy(buf, URI);
@@ -34,7 +34,7 @@ void generateDirectory(char URI[], char buf[]) {
 				continue;
 			}
 			strcat(buf, "<li><a href=\"");
-			strcat(buf, URI);
+			strcat(buf, URI+rootPath.length());
 			strcat(buf, "/");
 			strcat(buf, dir->d_name);
 			strcat(buf, "\"> ");
@@ -70,13 +70,13 @@ void serve(int tid, std::string rootPath) {
 		std::string root = rootPath.c_str();
 		dprintf("\nBEFORE\nroot: %s\nURI: %s", root.c_str(), URI);
 
-		if (root[0] != '/') {
-			root = "/" + root;
+		if (root[0] != '/' && root[0] != '.') {
+			root = "./" + root;
 		}
-		if (root[root.length()-1] == '/') {
+
+		if (root.length() > 1 && root[root.length()-1] == '/') {
 			root = root.substr(0, root.length()-1);
 		}
-		root = "." + root;
 
 		if (URI[strlen(URI)-1] == '/') {
 			URI[strlen(URI)-1] = '\0';
@@ -118,7 +118,7 @@ void serve(int tid, std::string rootPath) {
 			else { //output a directory listing
 				dprintf("%s is not an index file\n", indexURI);
 				isDirectory = true;
-				generateDirectory(URI, dirBuf);
+				generateDirectory(rootPath, URI, dirBuf);
 				fileLength = strlen(dirBuf);
 			}
 		}
