@@ -1,0 +1,20 @@
+{
+	"author": "Connor Smith",
+	"name": "http_server_static.lotta_flops",
+	"version": "1.0.0",
+	"description": "Simple static http server",
+	"main": "http_server_static",
+	"repository": {
+		"type": "git",
+		"url": "http://github.com/"
+	},
+	"keywords": [
+		"Connor",
+		"Smith",
+		"server"
+	],
+	"dependencies": {},
+	"engines": {
+		"node": "*"
+	}
+}
