@@ -1,0 +1,40 @@
+var MongoClient = require('mongodb').MongoClient;
+MongoClient.connect("mongodb://localhost/", function(err, db) {
+	var adminDB = db.admin();
+	adminDB.authenticate("dbadmin", "test", function(err, results) {
+		adminDB.listDatabases(function(err, databases) {
+			console.log("Before Add Database List: ");
+			console.log(databases);
+		});
+		var newDB = db.db("newDB");
+		newDB.createCollection("newCollection", function(err, collection) {
+			if (!err) {
+				console.log("New Database and Collection Created");
+				adminDB.listDatabases(function(err, databases) {
+					console.log("After Add Database List: ");
+					console.log(databases);
+					db.db("newDB").dropDatabase(function(err, results) {
+						if (!err) {
+							console.log("Database dropped.");
+							setTimeout(function() {
+								adminDB.listDatabases(function(err, results) {
+									var found = false;
+									results.databases.forEach(function(database) {
+										if (database.name == "newDB") {
+											found = true;
+										}
+									});
+									if (!found) {
+										console.log("After Delete Database List: ");
+										console.log(results);
+									}
+									db.close();
+								});
+							}, 15000);
+						}
+					});
+				});
+			}
+		});
+	})
+});
