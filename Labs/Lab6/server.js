@@ -33,7 +33,7 @@ http.createServer(function (req, res) {
 	}
 	else {
 		if (urlObj.pathname === '/') {
-			urlObj.pathname += 'index.html';
+			urlObj.pathname += 'html/weather.html';
 		}
 
 		fs.readFile(ROOT_DIR + urlObj.pathname, function (err,data) {
