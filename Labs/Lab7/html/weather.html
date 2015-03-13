@@ -1,0 +1,62 @@
+<html>
+<head>
+<title>City Weather</title>
+<script src="https://code.jquery.com/jquery-1.10.2.js"></script>
+<script src="lab5.js"></script>
+</head>
+
+<form>
+Enter a Utah City: <input id="city" type="text" value=""><br>
+Suggestions: <span id="suggest">Empty</span>
+<input id="submit" type="submit" value="Submit">
+</form>
+
+<p>City</p>
+<textarea id="dispcity">No City</textarea>
+
+<p>Current Weather</p>
+<div id="weather">No weather</div>
+
+<script type="text/javascript">
+	$("#city").keyup(function() {
+		var val = $("#city").val();
+		var url = "getcity?q="+val;
+		console.log(url);
+		$.getJSON(url,function(data) {
+		    var all = "<ul>";
+		    $.each(data, function(i,item) {
+		      all += "<li>"+data[i].city + "</li>";
+		    });
+		    all += "</ul>";
+		    console.log(all);
+		    $("#suggest").html(all);
+		  });
+	});
+
+	$("#submit").click(function(e) {
+		var val = $("#city").val();
+		console.log(val);
+
+		$("#dispcity").val(val);
+
+		var url = "https://api.wunderground.com/api/c00647bf9abf96ac/geolookup/conditions/q/Utah/"+val+".json";
+		$.ajax({
+			url: url,
+			dataType: "jsonp",
+			success: function(data) {
+				var loc = data['location']['city'];
+				var temp = data['current_observation']['temperature_string'];
+				var cur_weather = data['current_observation']['weather'];
+				var all = "<ul>";
+				all += "<li>Location: " + loc + "</li>";
+				all += "<li>Temperature: " + temp + "</li>";
+				all += "<li>Weather: " + cur_weather + "</li>";
+				all += "</ul>";
+				$("#weather").html(all);
+			}
+		});
+
+		e.preventDefault();
+	});
+</script>
+</html>
